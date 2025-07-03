@@ -1,0 +1,23 @@
+[project]
+name = "gtimes"
+version = "0.3.3"
+authors = [
+    { name = "Benedikt Gunnar Ófeigsson", email = "bgo@vedur.is" },
+    { name = "Maria Fernanda Gonzalez", email = "mariagr@vedur.is" },
+]
+description = "Collection of modules to handle time related conversions and strings formating. Handles GPS-time"
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+]
+maintainers = [{ name = "Benedikt Gunnar Ófeigsson", email = "bgo@vedur.is" }]
+requires-python = ">=3.8"
+dependencies = ["pandas>=2.0.3", "python-dateutil>=2.9.0.post0"]
+
+[project.scripts]
+timecalc = 'gtimes.timecalc:main'
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
