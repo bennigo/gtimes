@@ -59,7 +59,24 @@ def shifTime(String: str = "d0") -> dict:
     return Shiftdict
 
 
-def TimetoYearf(year, month, day, hour=12, minute=0, sec=0):
+def dTimetoYearf(dtime: datetime.datetime) -> float:
+    """
+
+    Function that converts datetime object to fractional year.
+
+    Examples:
+        >>>dTimetoYearf(datetime.datetime(2008, 3, 29, 12, 15, 0))
+
+    Args:
+        dtime: datetime object
+
+    Returns:
+        returns fractional year
+    """
+    return TimetoYearf(*dtime.timetuple()[0:6])
+
+
+def TimetoYearf(year: int, month: int, day: int, hour=12, minute=0, sec=0) -> float:
     """
     Function that converts time cal+time of day into fractional year.
 
