@@ -14,9 +14,10 @@ from dateutil.tz import tzlocal
 
 
 # Core functions ---------------------------
-def shifTime(String="d0"):
+def shifTime(String: str = "d0") -> dict:
     """
     Function to shift time.
+
 
     Examples:
         >>> shifTime("d0")
