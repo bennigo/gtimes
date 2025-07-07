@@ -1,16 +1,16 @@
-import os
-import math
 import calendar
 import datetime
+import math
+import os
+import re
 import string
 
-import re
-import pandas as pd
 import numpy as np
+import pandas as pd
+from dateutil.tz import tzlocal
 
 # importing constants from gpstime.
-from gtimes.gpstime import secsInDay, gpsFromUTC, UTCFromGps
-from dateutil.tz import tzlocal
+from gtimes.gpstime import UTCFromGps, gpsFromUTC, secsInDay
 
 
 # Core functions ---------------------------
@@ -690,6 +690,16 @@ def convfromYearf(yearf, String=None):
             tmp[i] = TimefromYearf(yearf[i])
 
     return np.asarray(tmp)
+
+
+def round_to_hour(dt: datetime.datetime) -> datetime.datetime:
+    minutes = dt.minute
+    if minutes >= 30:
+        return dt.replace(minute=0, second=0, microsecond=0) + datetime.timedelta(
+            hours=1
+        )
+    else:
+        return dt.replace(minute=0, second=0, microsecond=0)
 
 
 # functions using gps week and day of week ----------------
