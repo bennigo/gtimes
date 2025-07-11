@@ -103,7 +103,7 @@ def TimetoYearf(year: int, month: int, day: int, hour=12, minute=0, sec=0) -> fl
     return yearf
 
 
-def TimefromYearf(yearf, String=None):
+def TimefromYearf(yearf, String=None, rhour=False):
     """
     Function that returns a date and/or time according to a formated string derived from a fractional year.
     Intended to manipulate time format of gamit time series files which is in fractional years.
@@ -135,9 +135,11 @@ def TimefromYearf(yearf, String=None):
     musec = int(math.floor((fsec - Sec) * 1000000))  # microsecond 0 - 1000000
 
     timestr = "%d %.3d %.2d:%.2d:%.2d %s" % (year, doy, Hour, Min, Sec, musec)
-    dt = datetime.datetime.strptime(
-        timestr, "%Y %j %H:%M:%S %f"
-    )  # Create datetime object from timestr
+    # Create datetime object from timestr
+    dt = datetime.datetime.strptime(timestr, "%Y %j %H:%M:%S %f")
+    if rhour:
+        dt = round_to_hour(dt)
+
     if String:
         if String == "ordinalf":  # return a floating point ordinal day
             return dt.toordinal() + fofday
@@ -668,7 +670,7 @@ def hour8hABC(Hour=0):
 # Temporary functions to deal with numpy arrays Will become apsolete when implementd directly in the main moduvls
 
 
-def convfromYearf(yearf, String=None):
+def convfromYearf(yearf, String=None, rhour=False):
     """
     Function that calculates an array of dates in the form "year-doyT" from fractional year array.
 
@@ -685,9 +687,9 @@ def convfromYearf(yearf, String=None):
 
     for i in range(len(yearf)):
         if String:
-            tmp[i] = TimefromYearf(yearf[i], String)
+            tmp[i] = TimefromYearf(yearf[i], String=String, rhour=rhour)
         else:
-            tmp[i] = TimefromYearf(yearf[i])
+            tmp[i] = TimefromYearf(yearf[i], rhour=rhour)
 
     return np.asarray(tmp)
 
