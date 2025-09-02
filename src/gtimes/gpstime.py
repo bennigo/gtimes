@@ -147,13 +147,22 @@ def ymdhmsFromPyUTC(pyUTC) -> tuple:
     Function that computes a tuple from a python time value in UTC
 
     Args:
-        pyUTC:
+        pyUTC: Python UTC time (can include fractional seconds)
 
     Returns:
-        tuple from a python time
+        tuple from a python time (year, month, day, hour, min, sec)
+        where sec can be a float to preserve fractional seconds
     """
-
-    return time.gmtime(pyUTC)[:-3]
+    # Get integer part for gmtime
+    integerPart = int(pyUTC)
+    fractionalPart = pyUTC - integerPart
+    
+    # Get the basic time tuple
+    timeTuple = time.gmtime(integerPart)
+    
+    # Return (year, month, day, hour, min, sec) with fractional seconds
+    return (timeTuple[0], timeTuple[1], timeTuple[2], 
+            timeTuple[3], timeTuple[4], timeTuple[5] + fractionalPart)
 
 
 # def wtFromUTCpy(pyUTC, leapSecs=18):
@@ -450,13 +459,20 @@ def testDayOfWeek():
 def testPyUtilties():
     ymdhms = (2002, 10, 12, 8, 34, 12.3)
     print("testing for: ", ymdhms)
-    pyUtc = apply(mkUTC, ymdhms)
+    pyUtc = mkUTC(*ymdhms)
     back = ymdhmsFromPyUTC(pyUtc)
     print("yields     : ", back)
-    # *********************** !!!!!!!!
-    # assert(ymdhms == back)
-    # TODO:: this works only with int seconds!!! fix!!!
-    (w, t) = wtFromUTCpy(pyUtc)
+    
+    # Test with tolerance for floating point comparison
+    tolerance = 1e-6
+    assert len(ymdhms) == len(back), "Tuple lengths don't match"
+    for i, (expected, actual) in enumerate(zip(ymdhms, back)):
+        if i < 5:  # year, month, day, hour, min are integers
+            assert expected == actual, f"Element {i}: expected {expected}, got {actual}"
+        else:  # seconds can have fractional part
+            assert abs(expected - actual) < tolerance, f"Seconds: expected {expected}, got {actual}"
+    
+    (w, t) = gpsFromUTC(*ymdhms[:6])
     print("week and time: ", (w, t))
 
 

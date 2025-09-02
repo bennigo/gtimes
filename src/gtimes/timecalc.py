@@ -42,7 +42,7 @@ def main():
     """
     command line script for
     general time and date calculations.
-    can handle obscure GPS time formating.
+    can handle obscure GPS time formatting.
 
     run: timecalc -h for help
     """
@@ -90,7 +90,7 @@ def main():
         type=str,
         help="Format of the string passed to -d. If absent, -d defaults to "
         "%%Y-%%m-%%-%%m"
-        "." + " Special formating: " + " "
+        "." + " Special formatting: " + " "
         "yearf"
         " -> fractional year " + " "
         "w-dow"
@@ -140,7 +140,7 @@ def main():
         help=" Output format for general formatting defaults to "
         "%%a, %%d. %%b %%Y"
         "."
-        + " See datetime documentation for the formating."
+        + " See datetime documentation for the formatting."
         + " for special formatting see -f arguments",
     )
     group.add_argument(

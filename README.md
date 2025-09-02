@@ -1,6 +1,6 @@
 # gtimes library and timecalc program
 
-Collection of modules to handle time related conversions and strings formating. Handles GPS-time
+Collection of modules to handle time related conversions and string formatting. Handles GPS-time
 
 ### gtimes provides two sets of time modules gpstime and timefunc
 
@@ -20,6 +20,25 @@ Collection of modules to handle time related conversions and strings formating. 
 
     * pip
     * python pandas
+    * python-dateutil
+
+### Development
+
+For development and testing:
+
+```bash
+# Install with development dependencies
+pip install -e .[dev]
+
+# Run tests
+python run_tests.py
+
+# Run tests with quality checks
+python run_tests.py --quality
+
+# Run all tests including slow ones
+python run_tests.py --slow
+```
 
 ### Running examples
 

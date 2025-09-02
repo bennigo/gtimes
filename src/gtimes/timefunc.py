@@ -161,8 +161,8 @@ def currDatetime(days=0, refday=datetime.datetime.today(), String=None):
               days to offset
         refday: datetime object or a string, defaults to datetime.datetime.today()
               reference day
-        string: formating string. defaults to None (infering refday as datetime object)
-              If refday is a date string, this has to contain it's formating (i.e %Y-%m-%d %H:%M)
+        string: formatting string. defaults to None (inferring refday as datetime object)
+              If refday is a date string, this has to contain its formatting (i.e %Y-%m-%d %H:%M)
 
     Returns:
         A datetime object. Defaults to current day if ran without arguments
@@ -286,7 +286,7 @@ def datepathlist(
                       for details.                      Example, the date 2015-10-01
                       String = "/data/%Y/#b/VONC/15s_24hr/rinex/VONCR2inexO.Z" ->
                                 /data/2015/oct/VONC/15s_24hr/rinex/VONC2740.15O.Z
-                      Included are  some special case formating
+                      Included are some special case formatting
                            #gpsw -> GPS week
                            #b -> %b converted to all lowercase.
                            #Rin2 -> %j(session).%y where session is a single character
@@ -333,7 +333,7 @@ def datepathlist(
 
     today = datetime.datetime.now(datetime.timezone.utc)
 
-    # special home made formating
+    # special home made formatting
     gpswmatch = re.compile(r"\w*(#gpsw)\w*").search(stringformat)  # use GPS week
     wrepl = ""
     rmatch = re.compile(r"\w*(#Rin2)\w*").search(
@@ -390,8 +390,8 @@ def datepathlist(
 
     stringlist = []
     for item in datelist:
-        if rmatch or r8hmatch:  # form H or 8H rinex formating
-            if rmatch:  # for rinex formating
+        if rmatch or r8hmatch:  # form H or 8H rinex formatting
+            if rmatch:  # for rinex formatting
                 if lfrequency[-1] == "H":
                     hour = hourABC(item.hour)
                 else:
@@ -409,7 +409,7 @@ def datepathlist(
         if bbbmatch:  # for lower case three letter month name Jan -> jan ...
             bbbrepl = "{:%b}".format(item).lower()
 
-        # replacing special formating strings with the values
+        # replacing special formatting strings with the values
         pformat = re.sub("#gpsw", wrepl, stringformat)
         pformat = re.sub("#8hRin2", rrepl, pformat)
         pformat = re.sub("#Rin2", rrepl, pformat)
@@ -667,7 +667,7 @@ def hour8hABC(Hour=0):
     return hourdict[Hour]
 
 
-# Temporary functions to deal with numpy arrays Will become apsolete when implementd directly in the main moduvls
+# Vectorization functions for numpy arrays
 
 
 def convfromYearf(yearf, String=None, rhour=False):
@@ -745,7 +745,7 @@ def datefgpsWeekSOW(gpsWeek, SOW, String=None, leapSecs=None, mDay=False):
 
         String: output format See datetime for reference.
             None (Default), returns a python datetime object.
-            For special formating:
+            For special formatting:
             "yearf", will return date (time) in fractional year
             "tuple", will return a tuple with date (time)
 
@@ -864,14 +864,14 @@ def datefgpsWeekDoy(gpsWeek, Doy, String=None, leapSecs=None):
 
 def toDatetime(dStr, fStr):
     """
-    Function that converts date/time Strings to datetime objects accorting to formating rule defined in fStr
+    Function that converts date/time Strings to datetime objects according to formatting rule defined in fStr
 
     Args:
 
         dStr: (list of) String(s)  holding a date and/or time
 
-        fStr: formating rule constituding the  following input formats
-            default: fStr formated according to standard rules see for example datetime documentation for formating
+        fStr: formatting rule constituting the following input formats
+            default: fStr formatted according to standard rules see for example datetime documentation for formatting
             (i.e dStr=20150120 entailes fStr=%Y%m%d )
 
             yearf: decimal year
