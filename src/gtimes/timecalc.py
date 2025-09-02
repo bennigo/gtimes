@@ -39,12 +39,28 @@ def datestr(string):
 
 
 def main():
-    """
-    command line script for
-    general time and date calculations.
-    can handle obscure GPS time formatting.
+    """Command-line interface for GPS time calculations and conversions.
 
-    run: timecalc -h for help
+    Provides a command-line tool for general time and date calculations with 
+    support for GPS-specific time formats, RINEX filename generation, and 
+    complex date manipulations commonly used in GNSS data processing.
+
+    The tool supports:
+    - GPS week and day-of-week calculations
+    - UTC to GPS time conversions
+    - RINEX filename pattern generation
+    - Complex date range processing
+    - Custom time formatting with GPS extensions
+
+    Usage:
+        timecalc -h                    # Show help
+        timecalc -wd                   # Current GPS week/day
+        timecalc -wd -d 2020-01-01     # GPS week/day for specific date
+        timecalc -D 7 -l "file%j0.%yO" 1D -d 2020-01-01  # Generate file sequence
+
+    Note:
+        This is the main entry point for the 'timecalc' command installed
+        with the gtimes package. Run 'timecalc -h' for complete usage help.
     """
 
     # date to use defaults to today ----

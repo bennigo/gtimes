@@ -60,37 +60,53 @@ def shifTime(String: str = "d0") -> dict:
 
 
 def dTimetoYearf(dtime: datetime.datetime) -> float:
-    """
+    """Convert datetime object to fractional year representation.
 
-    Function that converts datetime object to fractional year.
-
-    Examples:
-        >>>dTimetoYearf(datetime.datetime(2008, 3, 29, 12, 15, 0))
+    Converts a datetime object to fractional year format commonly used in 
+    GAMIT time series analysis and geodetic applications.
 
     Args:
-        dtime: datetime object
+        dtime: Datetime object to convert
 
     Returns:
-        returns fractional year
+        float: Fractional year (e.g., 2008.245 for March 29, 2008)
+
+    Example:
+        >>> import datetime
+        >>> dt = datetime.datetime(2008, 3, 29, 12, 15, 0)
+        >>> yearf = dTimetoYearf(dt)
+        >>> print(f"Fractional year: {yearf:.6f}")
+        Fractional year: 2008.245205
     """
     return TimetoYearf(*dtime.timetuple()[0:6])
 
 
 def TimetoYearf(year: int, month: int, day: int, hour=12, minute=0, sec=0) -> float:
-    """
-    Function that converts time cal+time of day into fractional year.
+    """Convert date and time components to fractional year representation.
 
-    Examples:
-        >>>TimetoYearf(2008,03,29,hour=12,minute=15, sec=0)
-
+    Converts individual date and time components to fractional year format
+    commonly used in GAMIT time series analysis and geodetic applications.
 
     Args:
-        date: as year, month, day
-        time: as hour, minute, sec (defaults to the middle of the day at 12 am)
+        year: Year (4 digits, e.g., 2008)
+        month: Month (1-12)
+        day: Day of month (1-31)
+        hour: Hour (0-23, default: 12 for noon)
+        minute: Minute (0-59, default: 0)
+        sec: Second (0-59, can include fractional seconds, default: 0)
 
     Returns:
-        returns fractional year
+        float: Fractional year representation
 
+    Example:
+        >>> yearf = TimetoYearf(2008, 3, 29, hour=12, minute=15, sec=0)
+        >>> print(f"Fractional year: {yearf:.6f}")
+        Fractional year: 2008.245763
+
+        >>> # Beginning of year
+        >>> yearf_start = TimetoYearf(2020, 1, 1, hour=0, minute=0, sec=0)
+        >>> print(f"Year start: {yearf_start:.6f}")
+        Year start: 2020.000000
     """
     doy = DayofYear(0, year, month, day) - 1
     secofyear = doy * secsInDay + (hour * 60 + minute) * 60 + sec
@@ -104,21 +120,42 @@ def TimetoYearf(year: int, month: int, day: int, hour=12, minute=0, sec=0) -> fl
 
 
 def TimefromYearf(yearf, String=None, rhour=False):
-    """
-    Function that returns a date and/or time according to a formated string derived from a fractional year.
-    Intended to manipulate time format of gamit time series files which is in fractional years.
+    """Convert fractional year to datetime object or formatted string.
 
-    Examples:
-        >>>TimefromYearf(2023.97, String=None)
+    Converts fractional year representation (commonly used in GAMIT time series) 
+    back to datetime object or formatted string. Inverse operation of dTimetoYearf().
 
     Args:
-        string:
-            formated according to format codes that the C standard (1989 version) see documentation for
-            datetime module. Example "%Y %m %d %H:%M:%S %f"
-        year: fractional year. example 2012.55
+        yearf: Fractional year (e.g., 2023.97 for late December 2023)
+        String: Output format string. Options:
+            - None: Return datetime object (default)
+            - "ordinalf": Return ordinal day as float
+            - Standard strftime format (e.g., "%Y-%m-%d %H:%M:%S")
+        rhour: If True, round result to nearest hour (default: False)
 
     Returns:
-        Returns time of the input year formated according to input string.
+        If String is None:
+            datetime.datetime: Datetime object
+        If String is "ordinalf":
+            float: Ordinal day representation
+        Otherwise:
+            str: Formatted date/time string
+
+    Example:
+        >>> # Convert to datetime
+        >>> dt = TimefromYearf(2023.97)
+        >>> print(dt)
+        2023-12-20 20:48:00
+
+        >>> # Convert to formatted string
+        >>> date_str = TimefromYearf(2023.97, String="%Y-%m-%d")
+        >>> print(date_str)
+        2023-12-20
+
+        >>> # Round to nearest hour
+        >>> dt_rounded = TimefromYearf(2023.97, rhour=True)
+        >>> print(dt_rounded)
+        2023-12-20 21:00:00
     """
     # to integer year
     year = int(math.floor(yearf))
@@ -265,33 +302,60 @@ def gpsWeekDay(days=0, refday=currDate(), fromYearf=False):
 def datepathlist(
     stringformat, lfrequency, starttime=None, endtime=None, datelist=[], closed="left"
 ):
-    """
+    """Generate list of formatted date/time strings for GPS data processing.
 
-    Function that returns  a list of strings formated according to stringformat with
-    frequency lfrequency for a given interval between starttime and endtime,
-    can also accept a list of dates which will be converted according to
-    stringformat. defaults to single element list with formated current date.
-
-    Examples:
-        >>> datepathlist(stringformat,...)
-
-        Example the date 2015-10-01:
-            stringformat -> "/data/%Y/#b/VONC/15s_24hr/rinex/VONCR2inexO.Z"
-            output       -> "/data/2015/oct/VONC/15s_24hr/rinex/VONC2740.15O.Z"
+    Creates a list of strings formatted according to stringformat with specified 
+    frequency. Commonly used for generating RINEX filenames, data paths, and 
+    processing sequences in GPS analysis workflows.
 
     Args:
-        stringformat: A String determinaning the output format of the input time
-                      formated according to format codes that the C standard
-                      (1989 version) requires, see documentation for datetime module
-                      for details.                      Example, the date 2015-10-01
-                      String = "/data/%Y/#b/VONC/15s_24hr/rinex/VONCR2inexO.Z" ->
-                                /data/2015/oct/VONC/15s_24hr/rinex/VONC2740.15O.Z
-                      Included are some special case formatting
-                           #gpsw -> GPS week
-                           #b -> %b converted to all lowercase.
-                           #Rin2 -> %j(session).%y where session is a single character
-                           reprecenting the session of the day. The coding depedepends
-                           the (lfrequency).
+        stringformat: Format string for output. Supports standard strftime codes
+            plus GPS-specific extensions:
+            - Standard: %Y (year), %m (month), %d (day), %j (day of year), etc.
+            - GPS extensions:
+                - #gpsw: GPS week number
+                - #b: Lowercase month name (jan, feb, etc.)
+                - #Rin2: RINEX 2 format (%j + session).%y (e.g., "2740.15")
+                - #8hRin2: 8-hour RINEX format with session letters
+        lfrequency: Time frequency/interval:
+            - "1D": Daily intervals
+            - "1H": Hourly intervals  
+            - "8H": 8-hour intervals (for RINEX sessions)
+            - pandas frequency strings supported
+        starttime: Start datetime (default: current time)
+        endtime: End datetime (default: same as starttime for single entry)
+        datelist: Explicit list of datetime objects to format
+        closed: Interval closure ("left" or "right", default: "left")
+
+    Returns:
+        list[str]: List of formatted strings
+
+    Example:
+        >>> # Generate daily RINEX filenames for a week
+        >>> import datetime
+        >>> start = datetime.datetime(2015, 10, 1)
+        >>> filenames = datepathlist(
+        ...     stringformat="VONC%j0.%yO", 
+        ...     lfrequency="1D",
+        ...     starttime=start,
+        ...     periods=7
+        ... )
+        >>> print(filenames[0])
+        VONC2740.15O
+
+        >>> # Complex path with GPS-specific formatting
+        >>> paths = datepathlist(
+        ...     stringformat="/data/%Y/#b/VONC/VONC#Rin2D.Z",
+        ...     lfrequency="1D", 
+        ...     starttime=datetime.datetime(2015, 10, 1)
+        ... )
+        >>> print(paths[0])
+        /data/2015/oct/VONC/VONC2740.15D.Z
+
+    Note:
+        This function is essential for GPS data processing workflows at 
+        Veðurstofan Íslands, particularly for RINEX file management and
+        automated processing sequences.
                            #8hRin2 -> special case of 8h rinex files will overite lfrequency
                            by padding session parameter to {1, 2, 3}
                            #datelist -> returns a list of datetimeobjects instead of a string

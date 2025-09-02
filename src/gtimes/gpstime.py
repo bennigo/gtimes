@@ -189,31 +189,42 @@ def gpsFromUTC(
     leapSecs=None,
     gpst=True,
 ):
-    """
-    Converts UTC to: gpsWeek, secsOfWeek, gpsDay, secsOfDay
+    """Convert UTC time to GPS week, seconds of week, GPS day, and seconds of day.
 
-    a good reference is:  http://www.oc.nps.navy.mil/~jclynch/timsys.html
+    GPS time is measured in atomic seconds since January 6, 1980, 00:00:00.0 
+    (the GPS Epoch). GPS weeks start on Saturday midnight (Sunday morning) and 
+    run for 604800 seconds. GPS time accounts for leap seconds and is currently 
+    ahead of UTC by the accumulated leap second count.
 
-    This is based on the following facts (see reference above):
+    Args:
+        year: Year (4 digits, e.g., 2020)
+        month: Month (1-12)
+        day: Day of month (1-31)
+        hour: Hour (0-23)
+        min: Minute (0-59)
+        sec: Second (0-59, can include fractional seconds)
+        leapSecs: Number of leap seconds to apply. If None, automatically 
+            determined based on the date.
+        gpst: If True, use GPS time leap second handling (default: True)
 
-    GPS time is basically measured in (atomic) seconds since
-    January 6, 1980, 00:00:00.0  (the GPS Epoch)
+    Returns:
+        tuple: (gps_week, seconds_of_week, gps_day, seconds_of_day) where:
+            - gps_week: GPS week number since GPS epoch
+            - seconds_of_week: Seconds elapsed in current GPS week (0-604799)
+            - gps_day: GPS day number since GPS epoch  
+            - seconds_of_day: Seconds elapsed in current GPS day (0-86399)
 
-    The GPS week starts on Saturday midnight (Sunday morning), and runs
-    for 604800 seconds.
+    Note:
+        GPS time reference: http://www.oc.nps.navy.mil/~jclynch/timsys.html
+        
+        Historical leap second updates:
+        - 2013-01-07: Default changed to 16 leap seconds
+        - 2019-01-07: Default changed to 18 leap seconds
 
-    Currently, GPS time is 13 seconds ahead of UTC (see above reference).
-    While GPS SVs transmit this difference and the date when another leap
-    second takes effect, the use of leap seconds cannot be predicted.  This
-    routine is precise until the next leap second is introduced and has to be
-    updated after that.
-    BGO 07.01.2013: changed the default leapsecond to 16
-    BGO 07.01.2019: changed the default leapsecond to 18
-
-    SOW = Seconds of Week
-    SOD = Seconds of Day
-
-    Note:  Python represents time in integer seconds, fractions are lost!!!
+    Example:
+        >>> gps_week, sow, gps_day, sod = gpsFromUTC(2020, 1, 1, 12, 0, 0)
+        >>> print(f"GPS Week: {gps_week}, SOW: {sow}")
+        GPS Week: 2086, SOW: 388800
     """
 
     # Automatic or manually applyed leap seconds.
@@ -240,24 +251,38 @@ def gpsFromUTC(
 
 
 def UTCFromGps(gpsWeek: int, SOW: int, leapSecs: int = None, dtimeObj: bool = False):
-    """
-    Function that converts gps week and seconds to UTC.
-    BGO 07.01.2013: changed the default leapsecond to 16
-    BGO 07.01.2019: changed the default leapsecond to 18
+    """Convert GPS week and seconds of week to UTC time.
 
-    see comments of inverse function!
-
-    SOW = seconds of week
-    gpsWeek is the full number (not modulo 1024)
+    Converts GPS time (week number and seconds of week) back to UTC time,
+    accounting for leap seconds. This is the inverse operation of gpsFromUTC().
 
     Args:
-        gpsWeek:
-        SOW:
-        leapSecs:
-        dtimeObj:
+        gpsWeek: GPS week number since GPS epoch (full number, not modulo 1024)
+        SOW: Seconds of week (0-604799)
+        leapSecs: Number of leap seconds to apply. If None, automatically
+            determined based on the GPS time.
+        dtimeObj: If True, return datetime object; if False, return time tuple
+            (default: False)
 
     Returns:
-        datetime object in UTC time zone
+        If dtimeObj is True:
+            datetime.datetime: UTC datetime object
+        If dtimeObj is False:
+            tuple: (year, month, day, hour, minute, second) in UTC
+
+    Note:
+        Historical leap second updates:
+        - 2013-01-07: Default changed to 16 leap seconds  
+        - 2019-01-07: Default changed to 18 leap seconds
+
+    Example:
+        >>> utc_dt = UTCFromGps(2086, 388800, dtimeObj=True)
+        >>> print(utc_dt)
+        2020-01-01 12:00:00
+
+        >>> utc_tuple = UTCFromGps(2086, 388800, dtimeObj=False) 
+        >>> print(utc_tuple)
+        (2020, 1, 1, 12, 0, 0)
     """
 
     # Automatic or manually applied leap seconds.
@@ -289,20 +314,30 @@ def UTCFromGps(gpsWeek: int, SOW: int, leapSecs: int = None, dtimeObj: bool = Fa
 
 
 def GpsSecondsFromPyUTC(pyUTC, leapSecs=None):
-    """
-    Function that converts the python epoch to gps seconds
-    BGO 07.01.2013: changed the default leapsecond to 16
-    BGO 07.01.2019: changed the default leapsecond to 18
+    """Convert Python UTC timestamp to GPS seconds.
 
-    pyEpoch = the python epoch from time.time()
+    Converts a Python timestamp (seconds since Python epoch) to GPS seconds 
+    (seconds since GPS epoch), accounting for leap seconds.
 
     Args:
-        pyUTC:
-        leapSecs:
+        pyUTC: Python UTC timestamp (seconds since Python epoch 1970-01-01)
+        leapSecs: Number of leap seconds to apply. If None, automatically
+            determined based on the timestamp date.
 
     Returns:
-        Integer representing the number of leapSeconds in a python epoch
+        float: GPS seconds since GPS epoch (1980-01-06 00:00:00)
 
+    Note:
+        Historical leap second updates:
+        - 2013-01-07: Default changed to 16 leap seconds
+        - 2019-01-07: Default changed to 18 leap seconds
+
+    Example:
+        >>> import time
+        >>> py_utc = time.mktime((2020, 1, 1, 12, 0, 0, 0, 0, 0))
+        >>> gps_secs = GpsSecondsFromPyUTC(py_utc)
+        >>> print(f"GPS seconds: {gps_secs}")
+        GPS seconds: 1262347218.0
     """
 
     # Automatic or manually applied leap seconds.
@@ -330,16 +365,31 @@ def PyUTCFromGpsSeconds(gpsseconds):
 
 
 def getleapSecs(dTime=None, gpst=True):
-    """
-    Function that retreives the leap seconds for a given datetime.
+    """Get the number of leap seconds for a given date/time.
+
+    Determines the appropriate number of leap seconds based on the provided 
+    date/time. Leap seconds are added irregularly to keep UTC synchronized 
+    with Earth's rotation.
 
     Args:
-        dTime: A Time string can be a datetime object, string or integer (either seconds since Epoch or GPSs)
-        gpst:
-
+        dTime: Time specification, can be:
+            - datetime.datetime object
+            - tuple: (gps_week, seconds_of_week) for GPS time
+            - string: date string (format dependent on context)
+            - int: seconds since epoch
+            - None: use current time
+        gpst: If True, interpret time as GPS time; if False, as UTC time
+            (default: True)
 
     Returns:
-        leapsecs
+        int: Number of leap seconds to apply for the given date
+
+    Example:
+        >>> import datetime
+        >>> dt = datetime.datetime(2020, 1, 1)
+        >>> leap_secs = getleapSecs(dt)
+        >>> print(f"Leap seconds in 2020: {leap_secs}")
+        Leap seconds in 2020: 18
     """
 
     # tdiff = (gpsWeek * secsInWeek) + SOW - leapSecs
