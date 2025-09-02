@@ -11,11 +11,12 @@ import datetime
 import re
 import sys
 from importlib.metadata import version
+from typing import Optional, List, Union
 
 from gtimes import timefunc as timefunc
 
 
-def datestr(string):
+def datestr(string: str) -> datetime.datetime:
     """
     Validate that the provided string is a correctly formatted date.
 
@@ -24,10 +25,10 @@ def datestr(string):
     to validate date strings provided as command-line arguments.
 
     Args:
-        string (str): The date string to validate.
+        string: The date string to validate.
 
     Returns:
-        (datetime.datetime): The validated date string as a datetime object.
+        The validated date string as a datetime object.
 
     Raises:
         argparse.ArgumentTypeError: If the input string is not a valid datetime object.
@@ -38,7 +39,7 @@ def datestr(string):
     return string
 
 
-def main():
+def main() -> None:
     """Command-line interface for GPS time calculations and conversions.
 
     Provides a command-line tool for general time and date calculations with 
@@ -147,7 +148,7 @@ def main():
         "-v",
         "--version",
         action="version",
-        version=version("gtimes"),
+        version="0.3.3",  # Hardcoded version for development
         help="Show the version of the package",
     )
     group.add_argument(

@@ -49,6 +49,14 @@ import math
 import datetime
 import datetime as dt
 import locale
+from typing import Union, Tuple, Optional, Dict, Any
+from functools import lru_cache
+
+from .exceptions import (
+    GPSTimeError, LeapSecondError, ValidationError,
+    validate_gps_week, validate_seconds_of_week, 
+    validate_utc_components, validate_leap_seconds
+)
 
 
 # from sqlalchemy import Boolean
@@ -185,10 +193,10 @@ def gpsFromUTC(
     day: int,
     hour: int,
     min: int,
-    sec: int,
-    leapSecs=None,
-    gpst=True,
-):
+    sec: Union[int, float],
+    leapSecs: Optional[int] = None,
+    gpst: bool = True,
+) -> Tuple[int, float, int, float]:
     """Convert UTC time to GPS week, seconds of week, GPS day, and seconds of day.
 
     GPS time is measured in atomic seconds since January 6, 1980, 00:00:00.0 
@@ -227,15 +235,25 @@ def gpsFromUTC(
         GPS Week: 2086, SOW: 388800
     """
 
-    # Automatic or manually applyed leap seconds.
+    # Validate input parameters
+    try:
+        year, month, day, hour, min, sec = validate_utc_components(
+            year, month, day, hour, min, sec
+        )
+    except ValidationError as e:
+        raise GPSTimeError(f"Invalid UTC components: {e}") from e
+    
+    # Automatic or manually applied leap seconds.
     if leapSecs is None:
         leapSecs = getleapSecs(
-            dTime=dt.datetime(year, month, day, hour, min, sec), gpst=gpst
+            dTime=dt.datetime(year, month, day, hour, min, int(sec)), gpst=gpst
         )
+    else:
+        leapSecs = validate_leap_seconds(leapSecs)
 
     secFract = sec % 1
     t0 = time.mktime(epochTuple)
-    t = time.mktime((year, month, day, hour, min, sec, -1, -1, 0))
+    t = time.mktime((year, month, day, hour, min, int(sec), -1, -1, 0))
     # Note: time.mktime strictly works in localtime and to yield UTC, it should be
     #       corrected with time.timezone
     #       However, since we use the difference, this correction is unnecessary.
@@ -250,7 +268,12 @@ def gpsFromUTC(
     return (gpsWeek, gpsSOW, gpsDay, gpsSOD)
 
 
-def UTCFromGps(gpsWeek: int, SOW: int, leapSecs: int = None, dtimeObj: bool = False):
+def UTCFromGps(
+    gpsWeek: int, 
+    SOW: Union[int, float], 
+    leapSecs: Optional[int] = None, 
+    dtimeObj: bool = False
+) -> Union[Tuple[int, int, int, int, int, int], dt.datetime]:
     """Convert GPS week and seconds of week to UTC time.
 
     Converts GPS time (week number and seconds of week) back to UTC time,
@@ -285,9 +308,18 @@ def UTCFromGps(gpsWeek: int, SOW: int, leapSecs: int = None, dtimeObj: bool = Fa
         (2020, 1, 1, 12, 0, 0)
     """
 
+    # Validate input parameters
+    try:
+        gpsWeek = validate_gps_week(gpsWeek)
+        SOW = validate_seconds_of_week(SOW)
+    except ValidationError as e:
+        raise GPSTimeError(f"Invalid GPS time: {e}") from e
+
     # Automatic or manually applied leap seconds.
     if leapSecs is None:
         leapSecs = getleapSecs(dTime=(gpsWeek, SOW), gpst=True)
+    else:
+        leapSecs = validate_leap_seconds(leapSecs)
 
     secFract = SOW % 1
     epochTuple = gpsEpoch + (-1, -1, 0)
@@ -313,7 +345,7 @@ def UTCFromGps(gpsWeek: int, SOW: int, leapSecs: int = None, dtimeObj: bool = Fa
         return (year, month, day, hh, mm, ss + secFract)
 
 
-def GpsSecondsFromPyUTC(pyUTC, leapSecs=None):
+def GpsSecondsFromPyUTC(pyUTC: float, leapSecs: Optional[int] = None) -> float:
     """Convert Python UTC timestamp to GPS seconds.
 
     Converts a Python timestamp (seconds since Python epoch) to GPS seconds 
@@ -364,7 +396,10 @@ def PyUTCFromGpsSeconds(gpsseconds):
     pyUTC
 
 
-def getleapSecs(dTime=None, gpst=True):
+def getleapSecs(
+    dTime: Optional[Union[dt.datetime, Tuple[int, float], str, int]] = None, 
+    gpst: bool = True
+) -> int:
     """Get the number of leap seconds for a given date/time.
 
     Determines the appropriate number of leap seconds based on the provided 
@@ -432,7 +467,8 @@ def getleapSecs(dTime=None, gpst=True):
     return leapSecs
 
 
-def leapSecDict():
+@lru_cache(maxsize=1)
+def leapSecDict() -> Dict[int, int]:
     leapSecDict = {
         "1972-Jan-1": 10,
         "1972-Jul-1": 11,

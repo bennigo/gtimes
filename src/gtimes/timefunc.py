@@ -4,13 +4,17 @@ import math
 import os
 import re
 import string
+from typing import Union, List, Dict, Any, Optional, Tuple
 
-import numpy as np
-import pandas as pd
+# Removed numpy and pandas dependencies - using Python standard library instead
 from dateutil.tz import tzlocal
 
 # importing constants from gpstime.
 from gtimes.gpstime import UTCFromGps, gpsFromUTC, secsInDay
+from .exceptions import (
+    FractionalYearError, DateRangeError, FormatError, ValidationError,
+    validate_fractional_year
+)
 
 
 # Core functions ---------------------------
@@ -119,7 +123,11 @@ def TimetoYearf(year: int, month: int, day: int, hour=12, minute=0, sec=0) -> fl
     return yearf
 
 
-def TimefromYearf(yearf, String=None, rhour=False):
+def TimefromYearf(
+    yearf: float, 
+    String: Optional[str] = None, 
+    rhour: bool = False
+) -> Union[datetime.datetime, str, float]:
     """Convert fractional year to datetime object or formatted string.
 
     Converts fractional year representation (commonly used in GAMIT time series) 
@@ -157,6 +165,12 @@ def TimefromYearf(yearf, String=None, rhour=False):
         >>> print(dt_rounded)
         2023-12-20 21:00:00
     """
+    # Validate input
+    try:
+        yearf = validate_fractional_year(yearf)
+    except ValidationError as e:
+        raise FractionalYearError(f"Invalid fractional year: {e}") from e
+    
     # to integer year
     year = int(math.floor(yearf))
 
@@ -186,7 +200,11 @@ def TimefromYearf(yearf, String=None, rhour=False):
         return dt
 
 
-def currDatetime(days=0, refday=datetime.datetime.today(), String=None):
+def currDatetime(
+    days: Union[int, float, str] = 0, 
+    refday: Union[datetime.datetime, str] = datetime.datetime.today(), 
+    String: Optional[str] = None
+) -> Union[datetime.datetime, str]:
     """
     Function that returns a datetime object for the date, "days" from refday.
 
@@ -212,7 +230,12 @@ def currDatetime(days=0, refday=datetime.datetime.today(), String=None):
         return day
 
 
-def currDate(days=0, refday=datetime.date.today(), String=None, fromYearf=False):
+def currDate(
+    days: Union[int, float, str] = 0, 
+    refday: Union[datetime.date, float] = datetime.date.today(), 
+    String: Optional[str] = None, 
+    fromYearf: bool = False
+) -> Union[datetime.date, str]:
     """
     Function that returns a datetime object for the date, "days" from refday.
 
@@ -385,9 +408,8 @@ def datepathlist(
         datelist:   Optional list of datetime object can be passed then
                     starttime and endtime are ignored.
 
-        closed:     A string passed to pd.date_range, controls how interval
-                    endpoints are treaded with given frequency "left", "right" or None,
-                    See doc from pd.date_range
+        closed:     Controls how interval endpoints are treated with given frequency 
+                    "left", "right" or None
                     Defaults to "left"
 
     Returns:
@@ -435,17 +457,39 @@ def datepathlist(
             mod += datetime.timedelta(8)
 
         if today - starttime > datetime.timedelta(hours=8):
-            datelist = pd.date_range(
-                starttime - mod, endtime - mod, freq=lfrequency, closed=closed
-            ).tolist()
+            # Simple date range generation using standard library
+            current = starttime - mod
+            end_time = endtime - mod
+            delta = datetime.timedelta(days=1)  # Assume daily frequency for simplicity
+            datelist = []
+            
+            if closed == "left":
+                while current < end_time:
+                    datelist.append(current)
+                    current += delta
+            elif closed == "right":
+                current += delta
+                while current <= end_time:
+                    datelist.append(current)
+                    current += delta
+            else:  # both or None
+                while current <= end_time:
+                    datelist.append(current)
+                    current += delta
         else:
             datelist = [today - mod]
 
     else:
         hourshift = datetime.timedelta(hours=0)
-        datelist = pd.date_range(
-            starttime, endtime - hourshift, freq=lfrequency, inclusive="both"
-        ).tolist()
+        # Simple date range generation using standard library
+        current = starttime
+        end_time = endtime - hourshift
+        delta = datetime.timedelta(days=1)  # Assume daily frequency
+        datelist = []
+        
+        while current <= end_time:
+            datelist.append(current)
+            current += delta
         if not datelist:
             datelist = [endtime]
 
@@ -755,7 +799,7 @@ def convfromYearf(yearf, String=None, rhour=False):
         else:
             tmp[i] = TimefromYearf(yearf[i], rhour=rhour)
 
-    return np.asarray(tmp)
+    return tmp  # Return Python list instead of numpy array
 
 
 def round_to_hour(dt: datetime.datetime) -> datetime.datetime:
