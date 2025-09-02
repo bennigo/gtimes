@@ -1,8 +1,16 @@
-"""Shared test configuration and fixtures for gtimes tests."""
+"""Shared test configuration and fixtures for gtimes test suite.
+
+This module provides pytest fixtures and configuration used across multiple test modules.
+"""
 
 import datetime
 import pytest
-import numpy as np
+import sys
+from pathlib import Path
+
+# Add src to path for testing
+src_path = Path(__file__).parent.parent / "src"
+sys.path.insert(0, str(src_path))
 
 
 @pytest.fixture
@@ -18,34 +26,53 @@ def gps_epoch():
 
 
 @pytest.fixture
+def sample_utc_times():
+    """Provide a variety of UTC times for testing."""
+    return [
+        # GPS Epoch
+        (1980, 1, 6, 0, 0, 0.0),
+        # Y2K
+        (2000, 1, 1, 0, 0, 0.0),
+        # Recent date with fractional seconds
+        (2020, 6, 15, 14, 30, 45.123),
+        # Leap year
+        (2020, 2, 29, 12, 0, 0.0),
+        # End of month
+        (2022, 1, 31, 18, 45, 30.0),
+        # Mid-range date
+        (2010, 7, 15, 9, 30, 15.0),
+    ]
+
+
+@pytest.fixture
 def known_gps_times():
     """Provide known GPS time conversions for testing."""
     return [
         {
             'datetime': datetime.datetime(1980, 1, 6, 0, 0, 0),
             'gps_week': 0,
-            'sow': 0,
+            'sow': 0.0,
             'yearf': 1980.0136986301369,  # Approximate
         },
         {
             'datetime': datetime.datetime(2000, 1, 1, 12, 0, 0),
-            'gps_week': 1043,
-            'sow': 388800,  # 4 days * 24 hours * 3600 seconds + 12 hours * 3600
+            'gps_week': 1042,
+            'sow': 561613.0,  # Correct calculated SOW
             'yearf': 2000.0,  # Approximate
         },
         {
             'datetime': datetime.datetime(2020, 1, 1, 0, 0, 0),
             'gps_week': 2086,
-            'sow': 345600,  # 4 days * 24 hours * 3600 seconds
+            'sow': 259218.0,  # Correct calculated SOW
             'yearf': 2020.0,
         }
     ]
 
 
 @pytest.fixture
-def sample_yearf_array():
-    """Provide a sample fractional year array for vectorization tests."""
-    return np.array([2020.0, 2020.25, 2020.5, 2020.75, 2021.0])
+def sample_fractional_years():
+    """Provide fractional years for testing."""
+    return [2020.0, 2020.25, 2020.5, 2020.75, 2021.0, 1980.0, 2023.99726]
 
 
 @pytest.fixture
@@ -85,18 +112,44 @@ def rinex_filename_patterns():
     ]
 
 
+@pytest.fixture
+def invalid_gps_inputs():
+    """Provide invalid GPS time inputs for validation testing."""
+    return {
+        'negative_week': (-1, 388800.0),
+        'excessive_week': (99999, 388800.0),
+        'negative_sow': (2086, -1.0),
+        'excessive_sow': (2086, 604800.0),
+        'float_week': (2086.5, 388800.0),
+        'string_week': ('2086', 388800.0),
+        'string_sow': (2086, '388800'),
+    }
+
+
+@pytest.fixture
+def invalid_utc_inputs():
+    """Provide invalid UTC inputs for validation testing."""
+    return {
+        'invalid_year': (1900, 1, 1, 12, 0, 0),
+        'future_year': (2200, 1, 1, 12, 0, 0),
+        'invalid_month': (2020, 13, 1, 12, 0, 0),
+        'invalid_day': (2020, 1, 32, 12, 0, 0),
+        'invalid_hour': (2020, 1, 1, 24, 0, 0),
+        'invalid_minute': (2020, 1, 1, 12, 60, 0),
+        'invalid_second': (2020, 1, 1, 12, 0, 60.0),
+    }
+
+
 # Configure pytest markers
 def pytest_configure(config):
     """Configure custom pytest markers."""
-    config.addinivalue_line(
-        "markers", "unit: Unit tests for individual functions"
-    )
-    config.addinivalue_line(
-        "markers", "integration: Integration tests with real GPS data scenarios"
-    )
-    config.addinivalue_line(
-        "markers", "slow: Tests that take longer to run"
-    )
+    config.addinivalue_line("markers", "unit: Unit tests for individual functions")
+    config.addinivalue_line("markers", "integration: Integration tests with multiple components")
+    config.addinivalue_line("markers", "performance: Performance and benchmark tests")
+    config.addinivalue_line("markers", "edge_cases: Edge cases and boundary condition tests")
+    config.addinivalue_line("markers", "cli: Command-line interface tests")
+    config.addinivalue_line("markers", "validation: Input validation and error handling tests")
+    config.addinivalue_line("markers", "slow: Tests that take longer to run")
 
 
 # Skip slow tests by default unless explicitly requested
@@ -117,3 +170,8 @@ def pytest_addoption(parser):
         default=False,
         help="run slow tests"
     )
+
+
+# Precision tolerance for floating-point comparisons
+GPS_TIME_TOLERANCE = 1e-6  # Microsecond precision
+FRACTIONAL_YEAR_TOLERANCE = 1e-8  # High precision for fractional years

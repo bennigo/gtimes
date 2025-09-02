@@ -1,0 +1,359 @@
+{
+  "overall_passed": true,
+  "total_checks": 10,
+  "passed_checks": 10,
+  "failed_checks": 0,
+  "all_errors": [],
+  "detailed_results": {
+    "package_structure": {
+      "passed": true,
+      "errors": [],
+      "missing_required": [],
+      "missing_recommended": []
+    },
+    "pyproject_toml": {
+      "passed": true,
+      "errors": [],
+      "config": {
+        "project": {
+          "name": "gtimes",
+          "version": "0.4.0",
+          "description": "High-precision GPS time conversion and processing library for GNSS applications",
+          "readme": "README.md",
+          "license": {
+            "text": "MIT"
+          },
+          "authors": [
+            {
+              "name": "Benedikt Gunnar \u00d3feigsson",
+              "email": "bgo@vedur.is"
+            },
+            {
+              "name": "Maria Fernanda Gonzalez",
+              "email": "mariagr@vedur.is"
+            }
+          ],
+          "maintainers": [
+            {
+              "name": "Benedikt Gunnar \u00d3feigsson",
+              "email": "bgo@vedur.is"
+            }
+          ],
+          "keywords": [
+            "gps",
+            "gnss",
+            "time",
+            "conversion",
+            "geodesy",
+            "geophysics",
+            "rinex",
+            "gamit",
+            "globk",
+            "leap-seconds",
+            "coordinate-systems",
+            "satellite-navigation",
+            "positioning",
+            "surveying"
+          ],
+          "classifiers": [
+            "Development Status :: 4 - Beta",
+            "Intended Audience :: Science/Research",
+            "Intended Audience :: Developers",
+            "License :: OSI Approved :: MIT License",
+            "Operating System :: OS Independent",
+            "Programming Language :: Python :: 3",
+            "Programming Language :: Python :: 3.8",
+            "Programming Language :: Python :: 3.9",
+            "Programming Language :: Python :: 3.10",
+            "Programming Language :: Python :: 3.11",
+            "Programming Language :: Python :: 3.12",
+            "Programming Language :: Python :: 3.13",
+            "Topic :: Scientific/Engineering :: GIS",
+            "Topic :: Scientific/Engineering :: Physics",
+            "Topic :: Scientific/Engineering :: Astronomy",
+            "Topic :: Software Development :: Libraries :: Python Modules",
+            "Topic :: Utilities",
+            "Environment :: Console",
+            "Natural Language :: English"
+          ],
+          "requires-python": ">=3.8",
+          "dependencies": [
+            "python-dateutil>=2.9.0"
+          ],
+          "optional-dependencies": {
+            "dev": [
+              "pytest>=7.0.0",
+              "ruff>=0.1.0",
+              "black>=23.0.0",
+              "mypy>=1.0.0",
+              "pytest-cov>=4.0.0",
+              "pytest-benchmark>=4.0.0",
+              "bandit>=1.7.0",
+              "safety>=2.0.0"
+            ],
+            "test": [
+              "pytest>=7.0.0",
+              "pytest-cov>=4.0.0",
+              "pytest-benchmark>=4.0.0",
+              "pytest-xdist>=3.0.0"
+            ],
+            "docs": [
+              "mkdocs>=1.5.0",
+              "mkdocs-material>=9.0.0",
+              "mkdocstrings[python]>=0.24.0",
+              "mkdocs-gen-files>=0.5.0",
+              "mkdocs-literate-nav>=0.6.0",
+              "mkdocs-section-index>=0.3.0"
+            ],
+            "quality": [
+              "pydocstyle>=6.3.0",
+              "interrogate>=1.5.0",
+              "pipdeptree>=2.9.0",
+              "pip-audit>=2.6.0",
+              "requests>=2.31.0",
+              "beautifulsoup4>=4.12.0"
+            ],
+            "all": [
+              "gtimes[dev,test,docs,quality]"
+            ]
+          },
+          "urls": {
+            "Homepage": "https://github.com/bennigo/gtimes",
+            "Documentation": "https://bennigo.github.io/gtimes",
+            "Repository": "https://github.com/bennigo/gtimes",
+            "Issues": "https://github.com/bennigo/gtimes/issues",
+            "Changelog": "https://github.com/bennigo/gtimes/blob/main/CHANGELOG.md",
+            "Bug Tracker": "https://github.com/bennigo/gtimes/issues",
+            "Source Code": "https://github.com/bennigo/gtimes",
+            "CI/CD": "https://github.com/bennigo/gtimes/actions",
+            "Coverage": "https://codecov.io/gh/bennigo/gtimes"
+          },
+          "scripts": {
+            "timecalc": "gtimes.timecalc:main"
+          }
+        },
+        "build-system": {
+          "requires": [
+            "hatchling"
+          ],
+          "build-backend": "hatchling.build"
+        },
+        "tool": {
+          "ruff": {
+            "target-version": "py38",
+            "line-length": 88,
+            "select": [
+              "E",
+              "W",
+              "F",
+              "I",
+              "N",
+              "UP",
+              "B"
+            ],
+            "ignore": [
+              "E501",
+              "N803",
+              "N806"
+            ],
+            "per-file-ignores": {
+              "tests/*.py": [
+                "N802",
+                "N803"
+              ]
+            }
+          },
+          "black": {
+            "line-length": 88,
+            "target-version": [
+              "py38",
+              "py39",
+              "py310",
+              "py311",
+              "py312",
+              "py313"
+            ],
+            "include": "\\.pyi?$",
+            "extend-exclude": "/(\n  \\.venv\n  | \\.git\n  | build\n  | dist\n)/\n"
+          },
+          "mypy": {
+            "python_version": "3.8",
+            "warn_return_any": true,
+            "warn_unused_configs": true,
+            "disallow_untyped_defs": true,
+            "disallow_incomplete_defs": true,
+            "check_untyped_defs": true,
+            "disallow_untyped_decorators": true,
+            "no_implicit_optional": true,
+            "warn_redundant_casts": true,
+            "warn_unused_ignores": true,
+            "warn_no_return": true,
+            "warn_unreachable": true,
+            "strict_equality": true,
+            "overrides": [
+              {
+                "module": [
+                  "pandas.*",
+                  "numpy.*",
+                  "dateutil.*"
+                ],
+                "ignore_missing_imports": true
+              }
+            ]
+          },
+          "pytest": {
+            "ini_options": {
+              "minversion": "7.0",
+              "testpaths": [
+                "tests"
+              ],
+              "python_files": [
+                "test_*.py"
+              ],
+              "python_classes": [
+                "Test*"
+              ],
+              "python_functions": [
+                "test_*"
+              ],
+              "addopts": [
+                "--strict-markers",
+                "--strict-config",
+                "--disable-warnings",
+                "-ra"
+              ],
+              "markers": [
+                "unit: Unit tests for individual functions",
+                "integration: Integration tests across modules",
+                "performance: Performance and benchmarking tests",
+                "validation: Input validation and error handling tests",
+                "edge_cases: Edge cases and boundary condition tests",
+                "slow: Slow tests (run with --runslow)",
+                "precision: High-precision accuracy tests",
+                "rinex: RINEX format compatibility tests",
+                "gamit: GAMIT/GLOBK integration tests"
+              ],
+              "filterwarnings": [
+                "error",
+                "ignore::UserWarning",
+                "ignore::DeprecationWarning",
+                "ignore::PendingDeprecationWarning"
+              ]
+            }
+          },
+          "coverage": {
+            "run": {
+              "source": [
+                "src"
+              ],
+              "branch": true,
+              "omit": [
+                "*/tests/*",
+                "*/test_*",
+                "*/__pycache__/*",
+                "*/build/*",
+                "*/dist/*",
+                "*/.tox/*"
+              ]
+            },
+            "report": {
+              "exclude_lines": [
+                "pragma: no cover",
+                "def __repr__",
+                "if self.debug:",
+                "if settings.DEBUG",
+                "raise AssertionError",
+                "raise NotImplementedError",
+                "if 0:",
+                "if __name__ == .__main__.:",
+                "class .*\\bProtocol\\):",
+                "@(abc\\.)?abstractmethod"
+              ],
+              "ignore_errors": true,
+              "show_missing": true,
+              "precision": 2
+            },
+            "html": {
+              "directory": "htmlcov"
+            }
+          },
+          "bandit": {
+            "exclude_dirs": [
+              "tests",
+              "build",
+              "dist"
+            ],
+            "skips": [
+              "B101",
+              "B601"
+            ]
+          },
+          "pydocstyle": {
+            "convention": "google",
+            "add_ignore": [
+              "D100",
+              "D104",
+              "D105",
+              "D107"
+            ]
+          },
+          "interrogate": {
+            "ignore-init-method": true,
+            "ignore-init-module": true,
+            "ignore-magic": true,
+            "ignore-semiprivate": false,
+            "ignore-private": false,
+            "ignore-property-decorators": false,
+            "ignore-module": false,
+            "ignore-nested-functions": false,
+            "ignore-nested-classes": true,
+            "ignore-setters": false,
+            "fail-under": 80,
+            "exclude": [
+              "setup.py",
+              "docs",
+              "build",
+              "tests"
+            ],
+            "verbose": 1,
+            "quiet": false,
+            "whitelist-regex": [],
+            "color": true
+          }
+        }
+      }
+    },
+    "documentation": {
+      "passed": true,
+      "errors": []
+    },
+    "license_and_legal": {
+      "passed": true,
+      "errors": []
+    },
+    "build_system": {
+      "passed": true,
+      "errors": []
+    },
+    "installation_test": {
+      "passed": true,
+      "errors": []
+    },
+    "basic_functionality": {
+      "passed": true,
+      "errors": []
+    },
+    "cli_interface": {
+      "passed": true,
+      "errors": []
+    },
+    "scientific_accuracy": {
+      "passed": true,
+      "errors": []
+    },
+    "pypi_readiness": {
+      "passed": true,
+      "errors": []
+    }
+  }
+}

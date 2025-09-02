@@ -1,36 +1,97 @@
 [project]
 name = "gtimes"
-version = "0.3.3"
+version = "0.4.0"
+description = "High-precision GPS time conversion and processing library for GNSS applications"
+readme = "README.md"
+license = {text = "MIT"}
 authors = [
     { name = "Benedikt Gunnar Ófeigsson", email = "bgo@vedur.is" },
     { name = "Maria Fernanda Gonzalez", email = "mariagr@vedur.is" },
 ]
-description = "Collection of modules to handle time related conversions and string formatting. Handles GPS-time"
-readme = "README.md"
+maintainers = [
+    { name = "Benedikt Gunnar Ófeigsson", email = "bgo@vedur.is" }
+]
+keywords = [
+    "gps", "gnss", "time", "conversion", "geodesy", "geophysics", 
+    "rinex", "gamit", "globk", "leap-seconds", "coordinate-systems",
+    "satellite-navigation", "positioning", "surveying"
+]
 classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers", 
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.9", 
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: GIS",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Astronomy",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+    "Environment :: Console",
+    "Natural Language :: English",
 ]
-maintainers = [{ name = "Benedikt Gunnar Ófeigsson", email = "bgo@vedur.is" }]
 requires-python = ">=3.8"
-dependencies = ["pandas>=2.0.3", "python-dateutil>=2.9.0.post0"]
+dependencies = [
+    "python-dateutil>=2.9.0",
+]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "ruff>=0.1.0",
+    "ruff>=0.1.0", 
     "black>=23.0.0",
     "mypy>=1.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-benchmark>=4.0.0",
+    "bandit>=1.7.0",
+    "safety>=2.0.0",
+]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0", 
+    "pytest-benchmark>=4.0.0",
+    "pytest-xdist>=3.0.0",
+]
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.0.0",
+    "mkdocstrings[python]>=0.24.0",
+    "mkdocs-gen-files>=0.5.0",
+    "mkdocs-literate-nav>=0.6.0",
+    "mkdocs-section-index>=0.3.0",
+]
+quality = [
+    "pydocstyle>=6.3.0",
+    "interrogate>=1.5.0",
+    "pipdeptree>=2.9.0",
+    "pip-audit>=2.6.0",
+    "requests>=2.31.0",
+    "beautifulsoup4>=4.12.0",
+]
+all = [
+    "gtimes[dev,test,docs,quality]",
 ]
 
+[project.urls]
+Homepage = "https://github.com/bennigo/gtimes"
+Documentation = "https://bennigo.github.io/gtimes"
+Repository = "https://github.com/bennigo/gtimes"
+Issues = "https://github.com/bennigo/gtimes/issues"
+Changelog = "https://github.com/bennigo/gtimes/blob/main/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/bennigo/gtimes/issues"
+"Source Code" = "https://github.com/bennigo/gtimes"
+"CI/CD" = "https://github.com/bennigo/gtimes/actions"
+"Coverage" = "https://codecov.io/gh/bennigo/gtimes"
+
 [project.scripts]
-timecalc = 'gtimes.timecalc:main'
+timecalc = "gtimes.timecalc:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -94,20 +155,89 @@ module = [
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
+minversion = "7.0"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
-    "--verbose",
-    "--tb=short",
     "--strict-markers",
-    "--cov=gtimes",
-    "--cov-report=term-missing",
-    "--cov-report=html",
+    "--strict-config",
+    "--disable-warnings",
+    "-ra",
 ]
 markers = [
     "unit: Unit tests for individual functions",
-    "integration: Integration tests with real GPS data",
-    "slow: Tests that take longer to run",
+    "integration: Integration tests across modules", 
+    "performance: Performance and benchmarking tests",
+    "validation: Input validation and error handling tests",
+    "edge_cases: Edge cases and boundary condition tests",
+    "slow: Slow tests (run with --runslow)",
+    "precision: High-precision accuracy tests",
+    "rinex: RINEX format compatibility tests", 
+    "gamit: GAMIT/GLOBK integration tests",
 ]
+filterwarnings = [
+    "error",
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+    "*/build/*",
+    "*/dist/*",
+    "*/.tox/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+ignore_errors = true
+show_missing = true
+precision = 2
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.bandit]
+exclude_dirs = ["tests", "build", "dist"]
+skips = ["B101", "B601"]
+
+[tool.pydocstyle]
+convention = "google"
+add_ignore = ["D100", "D104", "D105", "D107"]
+
+[tool.interrogate]
+ignore-init-method = true
+ignore-init-module = true
+ignore-magic = true
+ignore-semiprivate = false
+ignore-private = false
+ignore-property-decorators = false
+ignore-module = false
+ignore-nested-functions = false
+ignore-nested-classes = true
+ignore-setters = false
+fail-under = 80
+exclude = ["setup.py", "docs", "build", "tests"]
+verbose = 1
+quiet = false
+whitelist-regex = []
+color = true

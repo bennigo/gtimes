@@ -1,0 +1,413 @@
+name: Quality Checks
+
+on:
+  push:
+    branches: [ main, develop, 'feature/**' ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  code-quality:
+    name: Code Quality Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .[dev,test]
+
+    - name: Run ruff linting
+      run: |
+        ruff check src/ tests/ --output-format=github --exit-non-zero-on-fix
+
+    - name: Run ruff formatting check
+      run: |
+        ruff format --check src/ tests/
+
+    - name: Run mypy type checking
+      run: |
+        mypy src/gtimes/ --strict --show-error-codes
+
+    - name: Check import sorting
+      run: |
+        ruff check src/ tests/ --select I --diff
+
+    - name: Check for security issues
+      run: |
+        bandit -r src/ -f json -o bandit-report.json
+        # Continue on warnings but fail on high severity
+        bandit -r src/ -ll
+
+  docstring-quality:
+    name: Documentation Quality
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .[dev,docs]
+        pip install pydocstyle interrogate
+
+    - name: Check docstring style
+      run: |
+        pydocstyle src/gtimes/ --convention=google
+
+    - name: Check docstring coverage
+      run: |
+        interrogate src/gtimes/ --verbose --fail-under=80 \
+          --ignore-init-method --ignore-init-module \
+          --ignore-magic --ignore-private
+
+    - name: Validate API documentation
+      run: |
+        python -c "
+        import inspect
+        from gtimes import gpstime, timefunc, exceptions, timecalc
+        
+        # Check that all public functions have docstrings
+        modules = [gpstime, timefunc, exceptions]
+        missing_docs = []
+        
+        for module in modules:
+            for name in dir(module):
+                if not name.startswith('_'):
+                    obj = getattr(module, name)
+                    if callable(obj) and not obj.__doc__:
+                        missing_docs.append(f'{module.__name__}.{name}')
+        
+        if missing_docs:
+            print('Missing docstrings:')
+            for item in missing_docs:
+                print(f'  - {item}')
+            exit(1)
+        else:
+            print('✅ All public functions have docstrings')
+        "
+
+  compatibility-check:
+    name: Python Compatibility
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install package
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+
+    - name: Test basic imports
+      run: |
+        python -c "
+        print('Testing basic imports...')
+        import gtimes
+        print(f'GTimes version: {gtimes.__version__}')
+        
+        from gtimes.gpstime import gpsFromUTC, UTCFromGps
+        from gtimes.timefunc import TimefromYearf, dTimetoYearf
+        from gtimes.exceptions import GPSTimeError
+        
+        # Basic functionality test
+        week, sow, day, sod = gpsFromUTC(2024, 1, 15, 12, 30, 45)
+        print(f'GPS conversion successful: Week {week}, SOW {sow}')
+        
+        print('✅ All imports successful')
+        "
+
+    - name: Test command-line interface
+      run: |
+        timecalc --version
+        timecalc -wd -d "2024-01-15"
+
+  dependency-check:
+    name: Dependency Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install pip-tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install pip-tools safety pip-audit
+
+    - name: Check for known security vulnerabilities
+      run: |
+        pip install -e .
+        pip freeze | safety check --json --output safety-report.json || true
+        
+        # Also run pip-audit
+        pip-audit --desc --output=json --output-file=pip-audit-report.json || true
+
+    - name: Analyze dependency tree
+      run: |
+        pip install pipdeptree
+        pipdeptree --warn silence
+        pipdeptree --json-tree > dependency-tree.json
+
+    - name: Check for outdated dependencies
+      run: |
+        pip list --outdated --format=json > outdated-dependencies.json
+
+    - name: Upload dependency reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: dependency-reports
+        path: |
+          safety-report.json
+          pip-audit-report.json
+          dependency-tree.json
+          outdated-dependencies.json
+
+  test-coverage-quality:
+    name: Test Coverage Quality
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .[dev,test]
+        pip install coverage-badge
+
+    - name: Run tests with coverage
+      run: |
+        pytest tests/ --cov=gtimes --cov-report=xml --cov-report=html --cov-report=term
+
+    - name: Generate coverage badge
+      run: |
+        coverage-badge -o coverage-badge.svg -f
+
+    - name: Check coverage thresholds
+      run: |
+        coverage report --fail-under=80
+
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: coverage-reports
+        path: |
+          htmlcov/
+          coverage.xml
+          coverage-badge.svg
+
+  platform-compatibility:
+    name: Platform Compatibility
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install package
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+
+    - name: Test GPS time functions
+      run: |
+        python -c "
+        from gtimes.gpstime import gpsFromUTC, UTCFromGps
+        import datetime
+        
+        # Test current time conversion
+        now = datetime.datetime.utcnow()
+        week, sow, day, sod = gpsFromUTC(now.year, now.month, now.day, 
+                                        now.hour, now.minute, now.second)
+        print(f'Current GPS time: Week {week}, SOW {sow:.3f}')
+        
+        # Test round-trip conversion
+        utc_back = UTCFromGps(week, sow, dtimeObj=True)
+        diff = abs((utc_back - now).total_seconds())
+        
+        if diff > 1.0:  # Allow 1 second tolerance
+            raise ValueError(f'Round-trip error too large: {diff:.6f}s')
+        
+        print('✅ Platform compatibility test passed')
+        "
+
+    - name: Test command-line tools
+      shell: bash
+      run: |
+        # Test basic CLI functionality
+        timecalc --version
+        
+        # Test GPS time calculation
+        result=$(timecalc -wd -d "2024-01-15")
+        echo "GPS Week/Day result: $result"
+        
+        # Verify result format (should be two numbers)
+        if [[ ! $result =~ ^[0-9]+[[:space:]]+[0-9]+$ ]]; then
+          echo "❌ Unexpected output format: $result"
+          exit 1
+        fi
+        
+        echo "✅ Command-line interface working"
+
+  edge-case-testing:
+    name: Edge Case Testing
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .[dev,test]
+
+    - name: Test GPS epoch boundaries
+      run: |
+        pytest tests/ -k "test_gps_epoch" -v
+
+    - name: Test leap year handling
+      run: |
+        pytest tests/ -k "test_leap_year" -v
+
+    - name: Test GPS week rollover
+      run: |
+        pytest tests/ -k "test_week_rollover" -v
+
+    - name: Test extreme date ranges
+      run: |
+        pytest tests/ -k "test_extreme_dates" -v
+
+    - name: Test fractional second precision
+      run: |
+        pytest tests/ -k "test_precision" -v
+
+  performance-monitoring:
+    name: Performance Monitoring
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .[dev,test]
+        pip install pytest-benchmark
+
+    - name: Run performance benchmarks
+      run: |
+        pytest tests/benchmark/ --benchmark-only --benchmark-json=benchmark.json
+
+    - name: Check for performance regressions
+      run: |
+        python -c "
+        import json
+        
+        # Load benchmark results
+        with open('benchmark.json', 'r') as f:
+            data = json.load(f)
+        
+        # Check if any test is unusually slow
+        slow_tests = []
+        for benchmark in data['benchmarks']:
+            mean_time = benchmark['stats']['mean']
+            if mean_time > 1.0:  # More than 1 second is concerning
+                slow_tests.append((benchmark['name'], mean_time))
+        
+        if slow_tests:
+            print('⚠️  Slow performance detected:')
+            for name, time in slow_tests:
+                print(f'  {name}: {time:.3f}s')
+        else:
+            print('✅ Performance benchmarks within acceptable range')
+        "
+
+  quality-summary:
+    name: Quality Summary
+    runs-on: ubuntu-latest
+    needs: [code-quality, docstring-quality, compatibility-check, dependency-check, test-coverage-quality, platform-compatibility, edge-case-testing, performance-monitoring]
+    if: always()
+
+    steps:
+    - name: Quality Gate Summary
+      run: |
+        echo "## Quality Check Summary" >> $GITHUB_STEP_SUMMARY
+        echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Code Quality | ${{ needs.code-quality.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Documentation Quality | ${{ needs.docstring-quality.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Python Compatibility | ${{ needs.compatibility-check.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Dependency Analysis | ${{ needs.dependency-check.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Test Coverage | ${{ needs.test-coverage-quality.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Platform Compatibility | ${{ needs.platform-compatibility.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Edge Case Testing | ${{ needs.edge-case-testing.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Performance Monitoring | ${{ needs.performance-monitoring.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        
+        # Overall status
+        if [[ "${{ needs.code-quality.result }}" == "success" && \
+              "${{ needs.docstring-quality.result }}" == "success" && \
+              "${{ needs.compatibility-check.result }}" == "success" && \
+              "${{ needs.test-coverage-quality.result }}" == "success" && \
+              "${{ needs.platform-compatibility.result }}" == "success" ]]; then
+          echo "🎉 **All quality checks PASSED!**" >> $GITHUB_STEP_SUMMARY
+          exit 0
+        else
+          echo "💥 **Some quality checks FAILED!**" >> $GITHUB_STEP_SUMMARY
+          exit 1
+        fi
