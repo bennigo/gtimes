@@ -140,13 +140,13 @@ def validate_time_conversion_accuracy() -> bool:
     
     from gtimes.gpstime import gpsFromUTC, UTCFromGps
     
-    # Test cases with known GPS time values
+    # Test cases with known GPS time values (corrected)
     test_cases = [
-        # (UTC tuple, expected GPS week, expected SOW)
-        ((2024, 1, 15, 12, 30, 45.123456), 2297, 216645.123456),
-        ((2000, 1, 1, 0, 0, 0), 1042, 518400.0),  # Y2K
-        ((1980, 1, 6, 0, 0, 0), 0, 0.0),          # GPS epoch
-        ((2019, 4, 6, 23, 59, 42), 2045, 604782.0), # Second GPS rollover
+        # (UTC tuple, expected GPS week, expected SOW)  
+        ((2024, 1, 1, 0, 0, 0), 2295, 86418.0),       # 2024 start
+        ((2000, 1, 1, 0, 0, 0), 1042, 518413.0),      # Y2K (with leap seconds)
+        ((1980, 1, 6, 0, 0, 0), 0, 0.0),              # GPS epoch
+        ((2019, 4, 6, 23, 59, 42), 2048, 0.0),        # Near GPS rollover
     ]
     
     validation_passed = True

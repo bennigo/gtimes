@@ -294,7 +294,7 @@ class PyPIDeployer:
             print(f"❌ Upload to {service} failed: {e}")
             return False
     
-    def deploy(self, test_only: bool = False) -> bool:
+    def deploy(self, test_only: bool = False, skip_test_pypi: bool = False, auto_confirm: bool = False) -> bool:
         """Run the complete deployment process."""
         print("🚀 GTimes PyPI Deployment")
         print("=" * 50)
@@ -320,10 +320,11 @@ class PyPIDeployer:
             if not self.test_installation():
                 return False
             
-            # Step 6: Upload to Test PyPI
-            print("\n📤 Uploading to Test PyPI first...")
-            if not self.upload_to_pypi(test_pypi=True):
-                return False
+            # Step 6: Upload to Test PyPI (unless skipped)
+            if not skip_test_pypi:
+                print("\n📤 Uploading to Test PyPI first...")
+                if not self.upload_to_pypi(test_pypi=True):
+                    return False
             
             if test_only:
                 print("\n✅ Test deployment completed successfully!")
@@ -334,11 +335,17 @@ class PyPIDeployer:
             print("\n" + "=" * 50)
             print("🎯 PRODUCTION DEPLOYMENT")
             print("=" * 50)
-            print("Test PyPI upload successful!")
+            if not skip_test_pypi:
+                print("Test PyPI upload successful!")
             print("Ready to deploy to production PyPI.")
             print("\n⚠️  WARNING: This will make the package publicly available!")
             
-            confirm = input("Deploy to production PyPI? (yes/NO): ").lower().strip()
+            if auto_confirm:
+                print("✅ Auto-confirming production deployment (--yes flag)")
+                confirm = "yes"
+            else:
+                confirm = input("Deploy to production PyPI? (yes/NO): ").lower().strip()
+            
             if confirm != "yes":
                 print("❌ Production deployment cancelled")
                 return False
@@ -366,6 +373,10 @@ def main():
     parser = argparse.ArgumentParser(description="Deploy GTimes to PyPI")
     parser.add_argument("--test-only", action="store_true", 
                        help="Only deploy to Test PyPI")
+    parser.add_argument("--skip-test-pypi", action="store_true",
+                       help="Skip Test PyPI upload and deploy directly to production")
+    parser.add_argument("--yes", "-y", action="store_true",
+                       help="Automatically confirm production deployment")
     parser.add_argument("--skip-validation", action="store_true",
                        help="Skip package validation (not recommended)")
     
@@ -377,7 +388,7 @@ def main():
     deployer = PyPIDeployer(package_dir)
     
     try:
-        success = deployer.deploy(test_only=args.test_only)
+        success = deployer.deploy(test_only=args.test_only, skip_test_pypi=args.skip_test_pypi, auto_confirm=args.yes)
         return 0 if success else 1
     except KeyboardInterrupt:
         print("\n\n❌ Deployment cancelled by user")

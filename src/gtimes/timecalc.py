@@ -16,6 +16,19 @@ from typing import Optional, List, Union
 from gtimes import timefunc as timefunc
 
 
+def _get_version() -> str:
+    """Get package version with fallback for development mode."""
+    try:
+        return version("gtimes")
+    except Exception:
+        # Fallback for development mode
+        try:
+            from gtimes import __version__
+            return __version__
+        except ImportError:
+            return "0.4.1"  # Development fallback
+
+
 def datestr(string: str) -> datetime.datetime:
     """
     Validate that the provided string is a correctly formatted date.
@@ -148,7 +161,7 @@ def main() -> None:
         "-v",
         "--version",
         action="version",
-        version=version("gtimes"),
+        version=_get_version(),
         help="Show the version of the package",
     )
     group.add_argument(
