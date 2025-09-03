@@ -1092,3 +1092,89 @@ def _to_ordinalf(dt):
             + dt.microsecond / MUSECONDS_PER_DAY
         )
     return base
+
+
+def parse_datetime_flexible(datetime_str: str) -> datetime.datetime:
+    """
+    Parse datetime string supporting multiple common formats.
+    
+    Supports both space-separated and ISO T-separated datetime formats:
+    - 'YYYY-MM-DD HH:MM' (space-separated)
+    - 'YYYY-MM-DD HH:MM:SS' (space-separated with seconds)
+    - 'YYYY-MM-DDTHH:MM:SS' (ISO format with T separator)
+    - 'YYYY-MM-DDTHH:MM:SS.sss' (ISO format with milliseconds)
+    - 'YYYY-MM-DDTHH:MM:SSZ' (ISO format with Z suffix)
+    
+    This function provides a central location for robust datetime parsing
+    across GPS/GNSS applications that may receive datetime data in various
+    formats from different sources (TOS API, RINEX files, etc.).
+    
+    Args:
+        datetime_str: String representation of datetime
+        
+    Returns:
+        datetime.datetime: Parsed datetime object
+        
+    Raises:
+        ValueError: If the datetime string cannot be parsed in any supported format
+        
+    Examples:
+        >>> parse_datetime_flexible('2023-08-25 14:30')
+        datetime.datetime(2023, 8, 25, 14, 30)
+        
+        >>> parse_datetime_flexible('2023-08-25T14:30:00')
+        datetime.datetime(2023, 8, 25, 14, 30)
+        
+        >>> parse_datetime_flexible('2023-08-25T14:30:00.123Z')
+        datetime.datetime(2023, 8, 25, 14, 30, 0, 123000)
+    """
+    if not isinstance(datetime_str, str):
+        raise ValueError(f"Expected string, got {type(datetime_str)}")
+    
+    datetime_str = datetime_str.strip()
+    
+    # List of format patterns to try, in order of preference
+    # Start with most specific (include seconds/microseconds) then fall back to basic
+    format_patterns = [
+        # ISO formats with T separator
+        '%Y-%m-%dT%H:%M:%S.%f',    # With microseconds
+        '%Y-%m-%dT%H:%M:%S',       # Standard ISO format
+        '%Y-%m-%dT%H:%M',          # ISO without seconds
+        
+        # Space-separated formats  
+        '%Y-%m-%d %H:%M:%S.%f',    # With microseconds
+        '%Y-%m-%d %H:%M:%S',       # With seconds
+        '%Y-%m-%d %H:%M',          # Basic format
+        
+        # Date only
+        '%Y-%m-%d',                # Date only
+    ]
+    
+    # Clean up common suffixes
+    clean_str = datetime_str
+    if clean_str.endswith('Z'):
+        clean_str = clean_str[:-1]  # Remove trailing Z
+    
+    # Try parsing with each format
+    for fmt in format_patterns:
+        try:
+            return datetime.datetime.strptime(clean_str, fmt)
+        except ValueError:
+            continue
+    
+    # If no format worked, try truncating to common lengths and retrying
+    # This handles cases like '2023-08-25T14:30:00.123456789' (nanoseconds)
+    for length in [19, 16, 10]:  # 'YYYY-MM-DDTHH:MM:SS', 'YYYY-MM-DDTHH:MM', 'YYYY-MM-DD'
+        if len(clean_str) > length:
+            truncated = clean_str[:length]
+            for fmt in format_patterns:
+                try:
+                    return datetime.datetime.strptime(truncated, fmt)
+                except ValueError:
+                    continue
+    
+    # If all parsing attempts failed, raise a descriptive error
+    raise ValueError(
+        f"Unable to parse datetime string '{datetime_str}'. "
+        f"Supported formats: {', '.join(format_patterns)}"
+    )
