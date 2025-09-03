@@ -183,7 +183,7 @@ jobs:
         pip list --outdated --format=json > outdated-dependencies.json
 
     - name: Upload dependency reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: dependency-reports
         path: |
@@ -224,7 +224,7 @@ jobs:
         coverage report --fail-under=80
 
     - name: Upload coverage reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: coverage-reports
         path: |
