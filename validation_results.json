@@ -139,6 +139,17 @@
           "build-backend": "hatchling.build"
         },
         "tool": {
+          "hatch": {
+            "build": {
+              "targets": {
+                "wheel": {
+                  "packages": [
+                    "src/gtimes"
+                  ]
+                }
+              }
+            }
+          },
           "ruff": {
             "target-version": "py38",
             "line-length": 88,

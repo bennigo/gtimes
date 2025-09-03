@@ -148,7 +148,7 @@ def main() -> None:
         "-v",
         "--version",
         action="version",
-        version="0.3.3",  # Hardcoded version for development
+        version=version("gtimes"),
         help="Show the version of the package",
     )
     group.add_argument(

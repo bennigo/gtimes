@@ -221,14 +221,20 @@ class PyPIDeployer:
             return "__token__", api_token
         
         print(f"Enter your {service} credentials:")
-        print("(You can also set the environment variable {token_env} with your API token)")
+        print(f"💡 Recommended: Use API tokens instead of username/password")
+        print(f"   Set environment variable: export {token_env}=pypi-...")
+        print(f"   Then use '__token__' as username")
         
         username = input("Username (or '__token__' for API token): ").strip()
         if not username:
             print("❌ Username required")
             return None
         
-        password = getpass.getpass("Password/Token: ")
+        if username == "__token__":
+            password = getpass.getpass("API Token (pypi-...): ")
+        else:
+            password = getpass.getpass("Password: ")
+            
         if not password:
             print("❌ Password/token required")
             return None
