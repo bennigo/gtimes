@@ -185,6 +185,7 @@ def main() -> None:
         + "#Rin2 -> rinex 2 format %%j(session).%%y, "
         + "where session is a single character session identifier, "
         + "#8hRin2 -> special case of 8h rinex two files where Sessions are {0,1,2}) "
+        + "#hourl -> hour of day as letter (0->a, 1->b, ..., 23->x), "
         + "Example:  /data/%%Y/#b/VONC/15s_24hr/rinex/VONC#Rin2O.Z -> "
         + "/data/2015/oct/VONC/15s_24hr/rinex/VONC2740.15O.Z \n"
         + "#datelist -> Specal case. list of dates one in a line. "
