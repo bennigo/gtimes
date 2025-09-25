@@ -78,6 +78,7 @@ The library supports GPS-specific formatting tokens:
 - `#b`: Lowercase month name
 - `#Rin2`: RINEX 2.x day-of-year format
 - `#8hRin2`: 8-hour session format
+- `#hourl`: Hour of day as letter (0→a, 1→b, ..., 23→x)
 
 ## Icelandic GPS Network
 

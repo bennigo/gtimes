@@ -12,8 +12,11 @@ from dateutil.tz import tzlocal
 # importing constants from gpstime.
 from gtimes.gpstime import UTCFromGps, gpsFromUTC, secsInDay
 from .exceptions import (
-    FractionalYearError, DateRangeError, FormatError, ValidationError,
-    validate_fractional_year
+    FractionalYearError,
+    DateRangeError,
+    FormatError,
+    ValidationError,
+    validate_fractional_year,
 )
 
 
@@ -66,7 +69,7 @@ def shifTime(String: str = "d0") -> dict:
 def dTimetoYearf(dtime: datetime.datetime) -> float:
     """Convert datetime object to fractional year representation.
 
-    Converts a datetime object to fractional year format commonly used in 
+    Converts a datetime object to fractional year format commonly used in
     GAMIT time series analysis and geodetic applications.
 
     Args:
@@ -124,13 +127,11 @@ def TimetoYearf(year: int, month: int, day: int, hour=12, minute=0, sec=0) -> fl
 
 
 def TimefromYearf(
-    yearf: float, 
-    String: Optional[str] = None, 
-    rhour: bool = False
+    yearf: float, String: Optional[str] = None, rhour: bool = False
 ) -> Union[datetime.datetime, str, float]:
     """Convert fractional year to datetime object or formatted string.
 
-    Converts fractional year representation (commonly used in GAMIT time series) 
+    Converts fractional year representation (commonly used in GAMIT time series)
     back to datetime object or formatted string. Inverse operation of dTimetoYearf().
 
     Args:
@@ -170,7 +171,7 @@ def TimefromYearf(
         yearf = validate_fractional_year(yearf)
     except ValidationError as e:
         raise FractionalYearError(f"Invalid fractional year: {e}") from e
-    
+
     # to integer year
     year = int(math.floor(yearf))
 
@@ -201,9 +202,9 @@ def TimefromYearf(
 
 
 def currDatetime(
-    days: Union[int, float, str] = 0, 
-    refday: Union[datetime.datetime, str] = datetime.datetime.today(), 
-    String: Optional[str] = None
+    days: Union[int, float, str] = 0,
+    refday: Union[datetime.datetime, str] = datetime.datetime.today(),
+    String: Optional[str] = None,
 ) -> Union[datetime.datetime, str]:
     """
     Function that returns a datetime object for the date, "days" from refday.
@@ -231,10 +232,10 @@ def currDatetime(
 
 
 def currDate(
-    days: Union[int, float, str] = 0, 
-    refday: Union[datetime.date, float] = datetime.date.today(), 
-    String: Optional[str] = None, 
-    fromYearf: bool = False
+    days: Union[int, float, str] = 0,
+    refday: Union[datetime.date, float] = datetime.date.today(),
+    String: Optional[str] = None,
+    fromYearf: bool = False,
 ) -> Union[datetime.date, str]:
     """
     Function that returns a datetime object for the date, "days" from refday.
@@ -327,8 +328,8 @@ def datepathlist(
 ):
     """Generate list of formatted date/time strings for GPS data processing.
 
-    Creates a list of strings formatted according to stringformat with specified 
-    frequency. Commonly used for generating RINEX filenames, data paths, and 
+    Creates a list of strings formatted according to stringformat with specified
+    frequency. Commonly used for generating RINEX filenames, data paths, and
     processing sequences in GPS analysis workflows.
 
     Args:
@@ -340,9 +341,10 @@ def datepathlist(
                 - #b: Lowercase month name (jan, feb, etc.)
                 - #Rin2: RINEX 2 format (%j + session).%y (e.g., "2740.15")
                 - #8hRin2: 8-hour RINEX format with session letters
+                - #hourl: Hour of day as letter (0→a, 1→b, ..., 23→x)
         lfrequency: Time frequency/interval:
             - "1D": Daily intervals
-            - "1H": Hourly intervals  
+            - "1H": Hourly intervals
             - "8H": 8-hour intervals (for RINEX sessions)
             - pandas frequency strings supported
         starttime: Start datetime (default: current time)
@@ -358,7 +360,7 @@ def datepathlist(
         >>> import datetime
         >>> start = datetime.datetime(2015, 10, 1)
         >>> filenames = datepathlist(
-        ...     stringformat="VONC%j0.%yO", 
+        ...     stringformat="VONC%j0.%yO",
         ...     lfrequency="1D",
         ...     starttime=start,
         ...     periods=7
@@ -369,14 +371,14 @@ def datepathlist(
         >>> # Complex path with GPS-specific formatting
         >>> paths = datepathlist(
         ...     stringformat="/data/%Y/#b/VONC/VONC#Rin2D.Z",
-        ...     lfrequency="1D", 
+        ...     lfrequency="1D",
         ...     starttime=datetime.datetime(2015, 10, 1)
         ... )
         >>> print(paths[0])
         /data/2015/oct/VONC/VONC2740.15D.Z
 
     Note:
-        This function is essential for GPS data processing workflows at 
+        This function is essential for GPS data processing workflows at
         Veðurstofan Íslands, particularly for RINEX file management and
         automated processing sequences.
                            #8hRin2 -> special case of 8h rinex files will overite lfrequency
@@ -408,7 +410,7 @@ def datepathlist(
         datelist:   Optional list of datetime object can be passed then
                     starttime and endtime are ignored.
 
-        closed:     Controls how interval endpoints are treated with given frequency 
+        closed:     Controls how interval endpoints are treated with given frequency
                     "left", "right" or None
                     Defaults to "left"
 
@@ -435,9 +437,16 @@ def datepathlist(
     )  # use all lower case for 3 letter month
     bbbrepl = ""
 
+    hmatch = re.compile(r"\w*(#hourl)\w*").search(
+        stringformat
+    )  # #hourl: Convert hours of day (0,1,2...23) to letters (a,b,c...x)
+    # Used for non-standard GNSS receiver filename formats like Leica
+    hrepl = ""
+
     datelistmatch = re.compile(r"\w*(#datelist)\w*").search(
         stringformat
     )  # Return a list of datetime objects
+
     # -----------
 
     if (endtime is None) and not datelist:
@@ -462,7 +471,7 @@ def datepathlist(
             end_time = endtime - mod
             delta = datetime.timedelta(days=1)  # Assume daily frequency for simplicity
             datelist = []
-            
+
             if closed == "left":
                 while current < end_time:
                     datelist.append(current)
@@ -486,7 +495,7 @@ def datepathlist(
         end_time = endtime - hourshift
         delta = datetime.timedelta(days=1)  # Assume daily frequency
         datelist = []
-        
+
         while current <= end_time:
             datelist.append(current)
             current += delta
@@ -514,6 +523,9 @@ def datepathlist(
         if gpswmatch:  # for GPS week
             wrepl = "{0:04d}".format(gpsWeekDay(refday=item)[0])
 
+        if hmatch:  # #hourl: Convert hour to letter (0→a, 1→b, ..., 23→x)
+            hrepl = hourABC(item.hour)
+
         if bbbmatch:  # for lower case three letter month name Jan -> jan ...
             bbbrepl = "{:%b}".format(item).lower()
 
@@ -521,6 +533,7 @@ def datepathlist(
         pformat = re.sub("#gpsw", wrepl, stringformat)
         pformat = re.sub("#8hRin2", rrepl, pformat)
         pformat = re.sub("#Rin2", rrepl, pformat)
+        pformat = re.sub("#hourl", hrepl, pformat)
         pformat = re.sub("#b", bbbrepl, pformat)
         pformat = item.strftime(pformat)
         stringlist.append(pformat)
