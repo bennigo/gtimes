@@ -323,6 +323,62 @@ def gpsWeekDay(days=0, refday=currDate(), fromYearf=False):
     return gpsfDateTime(days=0, refday=refday, fromYearf=False, mday=False)[0:3:2]
 
 
+def _parse_frequency_to_timedelta(lfrequency: str) -> datetime.timedelta:
+    """Parse frequency string to timedelta object.
+
+    Converts pandas/gtimes-style frequency strings to Python timedelta objects.
+    Supports hour-based and day-based frequencies.
+
+    Args:
+        lfrequency: Frequency string like "1H", "H", "1D", "D", "3H", "24H", etc.
+
+    Returns:
+        datetime.timedelta object representing the frequency
+
+    Raises:
+        ValueError: If frequency format is not recognized
+
+    Examples:
+        >>> _parse_frequency_to_timedelta("H")
+        datetime.timedelta(hours=1)
+        >>> _parse_frequency_to_timedelta("1H")
+        datetime.timedelta(hours=1)
+        >>> _parse_frequency_to_timedelta("3H")
+        datetime.timedelta(hours=3)
+        >>> _parse_frequency_to_timedelta("D")
+        datetime.timedelta(days=1)
+        >>> _parse_frequency_to_timedelta("1D")
+        datetime.timedelta(days=1)
+    """
+    if not lfrequency:
+        # Default to daily if not specified
+        return datetime.timedelta(days=1)
+
+    # Extract number and unit
+    # Format: [number]unit where unit is H, D, etc.
+    match = re.match(r'^(\d+)?([A-Za-z]+)$', lfrequency)
+    if not match:
+        raise ValueError(f"Invalid frequency format: {lfrequency}")
+
+    number_str, unit = match.groups()
+    number = int(number_str) if number_str else 1
+
+    # Map unit to timedelta parameter
+    unit_upper = unit.upper()
+    if unit_upper in ('H', 'HOUR', 'HOURS'):
+        return datetime.timedelta(hours=number)
+    elif unit_upper in ('D', 'DAY', 'DAYS'):
+        return datetime.timedelta(days=number)
+    elif unit_upper in ('W', 'WEEK', 'WEEKS'):
+        return datetime.timedelta(weeks=number)
+    elif unit_upper in ('M', 'MIN', 'MINUTE', 'MINUTES'):
+        return datetime.timedelta(minutes=number)
+    elif unit_upper in ('S', 'SEC', 'SECOND', 'SECONDS'):
+        return datetime.timedelta(seconds=number)
+    else:
+        raise ValueError(f"Unsupported frequency unit: {unit}")
+
+
 def datepathlist(
     stringformat, lfrequency, starttime=None, endtime=None, datelist=[], closed="left"
 ):
@@ -469,7 +525,8 @@ def datepathlist(
             # Simple date range generation using standard library
             current = starttime - mod
             end_time = endtime - mod
-            delta = datetime.timedelta(days=1)  # Assume daily frequency for simplicity
+            # For 8H sessions, generate daily intervals (3 sessions per day: 0-8, 8-16, 16-24)
+            delta = datetime.timedelta(days=1)
             datelist = []
 
             if closed == "left":
@@ -489,11 +546,14 @@ def datepathlist(
             datelist = [today - mod]
 
     else:
+        # Parse lfrequency to get correct time delta
+        # Supports formats like: "1H", "H", "1D", "D", "3H", "24H", etc.
+        delta = _parse_frequency_to_timedelta(lfrequency)
+
         hourshift = datetime.timedelta(hours=0)
         # Simple date range generation using standard library
         current = starttime
         end_time = endtime - hourshift
-        delta = datetime.timedelta(days=1)  # Assume daily frequency
         datelist = []
 
         while current <= end_time:
