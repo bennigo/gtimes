@@ -484,6 +484,11 @@ def datepathlist(
         stringformat
     )  # use GPS standard name RINEX2 name
     rrepl = ""
+    # #Rin3 - RINEX 3 long naming format: SSSS00CCC_R_YYYYDDDHHMM_PPU_FFS_TT
+    # Parameters can be passed as #Rin3 or #Rin3{options}
+    # Options: country=XXX, period=PPU, freq=FFS, type=TT, source=R/S/U
+    r3match = re.compile(r"#Rin3(\{[^}]*\})?").search(stringformat)
+    r3repl = ""
     r8hmatch = re.compile(r"\w*(#8hRin)\w*").search(
         stringformat
     )  # use GPS standard name RINEX2 name
@@ -580,6 +585,37 @@ def datepathlist(
             yr = int(item.strftime("%y"))
             rrepl = "%.3d%s.%.2d" % (doy, hour, yr)
 
+        if r3match:  # #Rin3 - RINEX 3 long naming format
+            # Parse optional parameters from #Rin3{param=value,...}
+            r3_opts = {"country": "ISL", "period": None, "freq": "15S", "type": "MO", "source": "R", "monument": "00"}
+            if r3match.group(1):
+                opts_str = r3match.group(1)[1:-1]  # Remove { and }
+                for opt in opts_str.split(","):
+                    if "=" in opt:
+                        k, v = opt.split("=", 1)
+                        r3_opts[k.strip()] = v.strip()
+
+            # Determine file period from frequency if not specified
+            if r3_opts["period"] is None:
+                if lfrequency[-1] == "H":
+                    r3_opts["period"] = "01H"
+                else:
+                    r3_opts["period"] = "01D"
+
+            # Build RINEX 3 naming components
+            doy = int(item.strftime("%j"))
+            year = item.year
+            hour = item.hour
+            minute = item.minute
+
+            # Format: YYYYDDDHHMM_PPU_FFS_TT
+            r3repl = (
+                f"{year:04d}{doy:03d}{hour:02d}{minute:02d}_"
+                f"{r3_opts['period']}_"
+                f"{r3_opts['freq']}_"
+                f"{r3_opts['type']}"
+            )
+
         if gpswmatch:  # for GPS week
             wrepl = "{0:04d}".format(gpsWeekDay(refday=item)[0])
 
@@ -593,6 +629,8 @@ def datepathlist(
         pformat = re.sub("#gpsw", wrepl, stringformat)
         pformat = re.sub("#8hRin2", rrepl, pformat)
         pformat = re.sub("#Rin2", rrepl, pformat)
+        # Handle #Rin3 with optional parameters
+        pformat = re.sub(r"#Rin3(\{[^}]*\})?", r3repl, pformat)
         pformat = re.sub("#hourl", hrepl, pformat)
         pformat = re.sub("#b", bbbrepl, pformat)
         pformat = item.strftime(pformat)
@@ -913,6 +951,524 @@ def datefRinex(rinex_list):
         )
 
     return date_list
+
+
+# RINEX naming conventions ----------------------------------------
+
+# RINEX 3/4 Long format constants
+RINEX3_COUNTRY_CODES = {
+    "IS": "ISL",  # Iceland
+    "NO": "NOR",  # Norway
+    "SE": "SWE",  # Sweden
+    "DK": "DNK",  # Denmark
+    "FI": "FIN",  # Finland
+    "GL": "GRL",  # Greenland
+    "US": "USA",  # United States
+    "DE": "DEU",  # Germany
+    "FR": "FRA",  # France
+    "GB": "GBR",  # Great Britain
+    "JP": "JPN",  # Japan
+    "AU": "AUS",  # Australia
+}
+
+RINEX3_DATA_SOURCES = {
+    "R": "Receiver",     # Directly from receiver
+    "S": "Stream",       # NTRIP stream
+    "U": "Unknown",      # Unknown source
+}
+
+RINEX3_FILE_TYPES = {
+    # Observation files
+    "MO": "Mixed Observation",
+    "GO": "GPS Observation",
+    "RO": "GLONASS Observation",
+    "EO": "Galileo Observation",
+    "JO": "QZSS Observation",
+    "CO": "BeiDou Observation",
+    "IO": "IRNSS Observation",
+    "SO": "SBAS Observation",
+    # Navigation files
+    "MN": "Mixed Navigation",
+    "GN": "GPS Navigation",
+    "RN": "GLONASS Navigation",
+    "EN": "Galileo Navigation",
+    "JN": "QZSS Navigation",
+    "CN": "BeiDou Navigation",
+    "IN": "IRNSS Navigation",
+    "SN": "SBAS Navigation",
+    # Meteorological
+    "MM": "Meteorological",
+}
+
+# RINEX 2 file type characters
+RINEX2_FILE_TYPES = {
+    "o": "Observation",
+    "n": "GPS Navigation",
+    "g": "GLONASS Navigation",
+    "l": "Galileo Navigation",
+    "m": "Meteorological",
+    "h": "SBAS Payload",
+}
+
+
+def rinex2_filename(
+    station: str,
+    dt: datetime.datetime,
+    file_type: str = "o",
+    session: Optional[str] = None,
+    sequence: int = 0,
+) -> str:
+    """Generate RINEX 2 short format filename.
+
+    Format: SSSS0DDS.YYt
+        - SSSS: 4-char station marker (uppercase)
+        - 0DD: 3-digit day of year (001-366)
+        - S: Session indicator (0 for daily, a-x for hourly)
+        - YY: 2-digit year
+        - t: File type (o=obs, n=nav, g=glonass nav, etc.)
+
+    Args:
+        station: 4-character station identifier (e.g., "ELDC")
+        dt: Datetime for the file
+        file_type: File type character (o, n, g, l, m, h) or RINEX 3 code (MO, GN, etc.)
+        session: Session letter (None=auto from frequency, "0"=daily, "a"-"x"=hourly)
+        sequence: File sequence number (0 for first file)
+
+    Returns:
+        RINEX 2 format filename (e.g., "ELDC0150.26o")
+
+    Example:
+        >>> import datetime
+        >>> rinex2_filename("ELDC", datetime.datetime(2026, 1, 15))
+        'ELDC0150.26o'
+        >>> rinex2_filename("ELDC", datetime.datetime(2026, 1, 15, 10, 0), session="k")
+        'ELDC015k.26o'
+    """
+    # Ensure station is 4 chars, uppercase
+    station = station.upper()[:4].ljust(4)
+
+    # Get day of year and 2-digit year
+    doy = dt.timetuple().tm_yday
+    year_2digit = dt.year % 100
+
+    # Determine session indicator
+    if session is None:
+        # Default to daily (0) if not specified
+        session_char = str(sequence) if sequence < 10 else "0"
+    elif session == "0" or session.isdigit():
+        session_char = session
+    else:
+        session_char = session.lower()
+
+    # Map RINEX 3 file types to RINEX 2 characters
+    type_mapping = {
+        "MO": "o", "GO": "o", "RO": "o", "EO": "o",  # Observation
+        "MN": "n", "GN": "n",  # GPS Navigation
+        "RN": "g",  # GLONASS Navigation
+        "EN": "l",  # Galileo Navigation
+        "MM": "m",  # Meteorological
+    }
+
+    if len(file_type) == 2 and file_type.upper() in type_mapping:
+        type_char = type_mapping[file_type.upper()]
+    else:
+        type_char = file_type[0].lower()
+
+    return f"{station}{doy:03d}{session_char}.{year_2digit:02d}{type_char}"
+
+
+def rinex3_filename(
+    station: str,
+    dt: datetime.datetime,
+    country_code: str = "ISL",
+    data_source: str = "R",
+    file_period: str = "01D",
+    data_frequency: str = "15S",
+    file_type: str = "MO",
+    monument_number: str = "00",
+    uppercase: bool = False,
+) -> str:
+    """Generate RINEX 3/4 long format filename.
+
+    Format: SSSS00CCC_R_YYYYDDDHHMM_PPU_FFS_TT.rnx
+        - SSSS: 4-char station marker (lowercase by default for RINEX 3+)
+        - 00: 2-digit monument number
+        - CCC: 3-char ISO country code
+        - R: Data source (R=receiver, S=stream, U=unknown)
+        - YYYY: 4-digit year
+        - DDD: 3-digit day of year
+        - HH: Start hour (00-23)
+        - MM: Start minute (00-59)
+        - PP: File period value (01, 15, etc.)
+        - U: Period unit (D=day, H=hour, M=minute)
+        - FF: Data frequency value (01, 15, 30, etc.)
+        - S: Frequency unit (S=second, M=minute, H=hour)
+        - TT: File type (MO, GO, MN, etc.)
+
+    Args:
+        station: 4-character station identifier
+        dt: Datetime for the file start
+        country_code: 3-char ISO country code (default: "ISL" for Iceland)
+        data_source: Data source code (R, S, or U)
+        file_period: File period (e.g., "01D", "01H", "15M")
+        data_frequency: Data frequency (e.g., "15S", "01S", "30S")
+        file_type: RINEX 3 file type code (MO, GO, MN, etc.)
+        monument_number: 2-digit monument marker number
+        uppercase: Use uppercase station ID (default: False for RINEX 3+ standard)
+
+    Returns:
+        RINEX 3 format filename (e.g., "eldc00ISL_R_20260150000_01D_15S_MO.rnx")
+
+    Example:
+        >>> import datetime
+        >>> rinex3_filename("ELDC", datetime.datetime(2026, 1, 15))
+        'eldc00ISL_R_20260150000_01D_15S_MO.rnx'
+        >>> rinex3_filename("ELDC", datetime.datetime(2026, 1, 15), uppercase=True)
+        'ELDC00ISL_R_20260150000_01D_15S_MO.rnx'
+        >>> rinex3_filename("ELDC", datetime.datetime(2026, 1, 15, 10, 0),
+        ...                 file_period="01H", data_frequency="01S")
+        'eldc00ISL_R_20260151000_01H_01S_MO.rnx'
+    """
+    # Station case: lowercase by default for RINEX 3+, uppercase if requested
+    if uppercase:
+        station = station.upper()[:4].ljust(4)
+    else:
+        station = station.lower()[:4].ljust(4)
+
+    # Ensure monument number is 2 digits
+    monument_number = str(monument_number).zfill(2)[:2]
+
+    # Country code uppercase, 3 chars
+    country_code = country_code.upper()[:3]
+
+    # Date components
+    year = dt.year
+    doy = dt.timetuple().tm_yday
+    hour = dt.hour
+    minute = dt.minute
+
+    # Data source
+    data_source = data_source.upper()[:1]
+
+    # File type uppercase
+    file_type = file_type.upper()[:2]
+
+    return (
+        f"{station}{monument_number}{country_code}_"
+        f"{data_source}_"
+        f"{year:04d}{doy:03d}{hour:02d}{minute:02d}_"
+        f"{file_period}_"
+        f"{data_frequency}_"
+        f"{file_type}.rnx"
+    )
+
+
+def parse_rinex2_filename(filename: str) -> Optional[Dict[str, Any]]:
+    """Parse RINEX 2 short format filename into components.
+
+    Args:
+        filename: RINEX 2 filename (e.g., "ELDC0150.26o")
+
+    Returns:
+        Dictionary with parsed components or None if parsing fails:
+        - station: 4-char station code
+        - doy: Day of year (1-366)
+        - session: Session character (0-9 or a-x)
+        - year: Full 4-digit year
+        - file_type: File type character
+        - datetime: Parsed datetime object
+
+    Example:
+        >>> parse_rinex2_filename("ELDC015k.26o")
+        {'station': 'ELDC', 'doy': 15, 'session': 'k', 'year': 2026,
+         'file_type': 'o', 'datetime': datetime.datetime(2026, 1, 15, 10, 0)}
+    """
+    # Remove path and extension variations
+    basename = os.path.basename(filename)
+
+    # Pattern: SSSS0DDS.YYt
+    pattern = r'^([A-Za-z0-9]{4})(\d{3})([0-9a-z])\.(\d{2})([ongmlh])$'
+    match = re.match(pattern, basename, re.IGNORECASE)
+
+    if not match:
+        return None
+
+    station = match.group(1).upper()
+    doy = int(match.group(2))
+    session = match.group(3).lower()
+    year_2digit = int(match.group(4))
+    file_type = match.group(5).lower()
+
+    # Convert 2-digit year to 4-digit (80-99 = 1980-1999, 00-79 = 2000-2079)
+    year = 2000 + year_2digit if year_2digit < 80 else 1900 + year_2digit
+
+    # Convert session to hour
+    if session.isdigit():
+        hour = 0  # Daily file
+    else:
+        hour = ABChour(session)
+
+    # Create datetime
+    try:
+        dt = datetime.datetime.strptime(f"{year}-{doy}:{hour:02d}", "%Y-%j:%H")
+    except ValueError:
+        dt = None
+
+    return {
+        "station": station,
+        "doy": doy,
+        "session": session,
+        "year": year,
+        "file_type": file_type,
+        "datetime": dt,
+    }
+
+
+def parse_rinex3_filename(filename: str) -> Optional[Dict[str, Any]]:
+    """Parse RINEX 3/4 long format filename into components.
+
+    Args:
+        filename: RINEX 3 filename (e.g., "eldc00ISL_R_20260150000_01D_15S_MO.rnx")
+
+    Returns:
+        Dictionary with parsed components or None if parsing fails:
+        - station: 4-char station code (uppercase)
+        - monument_number: 2-char monument marker
+        - country_code: 3-char country code
+        - data_source: Data source code
+        - year: 4-digit year
+        - doy: Day of year
+        - hour: Hour (0-23)
+        - minute: Minute (0-59)
+        - file_period: File period (e.g., "01D")
+        - data_frequency: Data frequency (e.g., "15S")
+        - file_type: File type code
+        - datetime: Parsed datetime object
+
+    Example:
+        >>> parse_rinex3_filename("eldc00ISL_R_20260151000_01H_01S_MO.rnx")
+        {'station': 'ELDC', 'monument_number': '00', 'country_code': 'ISL',
+         'data_source': 'R', 'year': 2026, 'doy': 15, 'hour': 10, 'minute': 0,
+         'file_period': '01H', 'data_frequency': '01S', 'file_type': 'MO',
+         'datetime': datetime.datetime(2026, 1, 15, 10, 0)}
+    """
+    # Remove path
+    basename = os.path.basename(filename)
+
+    # Pattern: SSSS00CCC_R_YYYYDDDHHMM_PPU_FFS_TT.rnx
+    pattern = (
+        r'^([a-zA-Z0-9]{4})(\d{2})([A-Z]{3})_'
+        r'([RSU])_'
+        r'(\d{4})(\d{3})(\d{2})(\d{2})_'
+        r'(\d{2}[DHMS])_'
+        r'(\d{2}[SHMU])_'
+        r'([A-Z]{2})'
+        r'\.rnx'
+    )
+    match = re.match(pattern, basename, re.IGNORECASE)
+
+    if not match:
+        return None
+
+    station = match.group(1).upper()
+    monument_number = match.group(2)
+    country_code = match.group(3).upper()
+    data_source = match.group(4).upper()
+    year = int(match.group(5))
+    doy = int(match.group(6))
+    hour = int(match.group(7))
+    minute = int(match.group(8))
+    file_period = match.group(9).upper()
+    data_frequency = match.group(10).upper()
+    file_type = match.group(11).upper()
+
+    # Create datetime
+    try:
+        dt = datetime.datetime.strptime(f"{year}-{doy}:{hour:02d}:{minute:02d}", "%Y-%j:%H:%M")
+    except ValueError:
+        dt = None
+
+    return {
+        "station": station,
+        "monument_number": monument_number,
+        "country_code": country_code,
+        "data_source": data_source,
+        "year": year,
+        "doy": doy,
+        "hour": hour,
+        "minute": minute,
+        "file_period": file_period,
+        "data_frequency": data_frequency,
+        "file_type": file_type,
+        "datetime": dt,
+    }
+
+
+def rinex_filename(
+    station: str,
+    dt: datetime.datetime,
+    version: int = 2,
+    frequency: str = "1D",
+    file_type: str = "o",
+    **kwargs
+) -> str:
+    """Generate RINEX filename in either short (v2) or long (v3/4) format.
+
+    This is a convenience wrapper that calls either rinex2_filename or
+    rinex3_filename based on the version parameter.
+
+    Args:
+        station: 4-character station identifier
+        dt: Datetime for the file
+        version: RINEX version (2, 3, or 4)
+        frequency: File frequency ("1D" for daily, "1H" for hourly)
+        file_type: File type (RINEX 2: "o", "n", etc. or RINEX 3: "MO", "MN", etc.)
+        **kwargs: Additional arguments passed to the specific function
+
+    Returns:
+        RINEX filename in appropriate format
+
+    Example:
+        >>> import datetime
+        >>> dt = datetime.datetime(2026, 1, 15)
+        >>> rinex_filename("ELDC", dt, version=2)
+        'ELDC0150.26o'
+        >>> rinex_filename("ELDC", dt, version=3)
+        'eldc00ISL_R_20260150000_01D_15S_MO.rnx'
+    """
+    if version == 2:
+        # Map frequency to session
+        if frequency.upper() in ("1H", "H"):
+            session = hourABC(dt.hour)
+        else:
+            session = "0"
+
+        return rinex2_filename(
+            station=station,
+            dt=dt,
+            file_type=file_type,
+            session=session,
+            sequence=kwargs.get("sequence", 0),
+        )
+    else:
+        # RINEX 3/4
+        # Map file_type from RINEX 2 to RINEX 3 if needed
+        type_mapping = {
+            "o": "MO",
+            "n": "GN",
+            "g": "RN",
+            "l": "EN",
+            "m": "MM",
+        }
+        if len(file_type) == 1:
+            file_type = type_mapping.get(file_type.lower(), "MO")
+
+        # Map frequency to file_period
+        if frequency.upper() in ("1H", "H"):
+            file_period = "01H"
+        elif frequency.upper() in ("1D", "D"):
+            file_period = "01D"
+        else:
+            file_period = kwargs.get("file_period", "01D")
+
+        return rinex3_filename(
+            station=station,
+            dt=dt,
+            country_code=kwargs.get("country_code", "ISL"),
+            data_source=kwargs.get("data_source", "R"),
+            file_period=file_period,
+            data_frequency=kwargs.get("data_frequency", "15S"),
+            file_type=file_type,
+            monument_number=kwargs.get("monument_number", "00"),
+        )
+
+
+def convert_rinex_filename(
+    filename: str,
+    target_version: int,
+    **kwargs
+) -> Optional[str]:
+    """Convert RINEX filename between version 2 and version 3/4 formats.
+
+    Args:
+        filename: Input RINEX filename (either v2 or v3 format)
+        target_version: Target RINEX version (2, 3, or 4)
+        **kwargs: Additional arguments for target format (country_code, etc.)
+
+    Returns:
+        Converted filename or None if parsing fails
+
+    Example:
+        >>> convert_rinex_filename("ELDC0150.26o", target_version=3)
+        'eldc00ISL_R_20260150000_01D_15S_MO.rnx'
+        >>> convert_rinex_filename("eldc00ISL_R_20260151000_01H_01S_MO.rnx", target_version=2)
+        'ELDC015k.26o'
+    """
+    # Try parsing as RINEX 2
+    parsed = parse_rinex2_filename(filename)
+    source_version = 2
+
+    if parsed is None:
+        # Try parsing as RINEX 3
+        parsed = parse_rinex3_filename(filename)
+        source_version = 3
+
+    if parsed is None:
+        return None
+
+    dt = parsed.get("datetime")
+    if dt is None:
+        return None
+
+    station = parsed["station"]
+
+    if target_version == 2:
+        # Convert to RINEX 2
+        session = parsed.get("session")
+        if session is None:
+            # Derive from hour
+            hour = parsed.get("hour", 0)
+            if hour == 0:
+                session = "0"
+            else:
+                session = hourABC(hour)
+
+        file_type = parsed.get("file_type", "o")
+        if len(file_type) == 2:
+            # Map RINEX 3 type to RINEX 2
+            type_mapping = {"MO": "o", "GO": "o", "MN": "n", "GN": "n", "RN": "g", "EN": "l", "MM": "m"}
+            file_type = type_mapping.get(file_type.upper(), "o")
+
+        return rinex2_filename(station, dt, file_type=file_type, session=session)
+
+    else:
+        # Convert to RINEX 3
+        file_period = parsed.get("file_period")
+        if file_period is None:
+            # Derive from session
+            session = parsed.get("session", "0")
+            if session.isdigit():
+                file_period = "01D"
+            else:
+                file_period = "01H"
+
+        data_frequency = parsed.get("data_frequency", kwargs.get("data_frequency", "15S"))
+
+        file_type = parsed.get("file_type", "o")
+        if len(file_type) == 1:
+            type_mapping = {"o": "MO", "n": "GN", "g": "RN", "l": "EN", "m": "MM"}
+            file_type = type_mapping.get(file_type.lower(), "MO")
+
+        return rinex3_filename(
+            station=station,
+            dt=dt,
+            country_code=kwargs.get("country_code", parsed.get("country_code", "ISL")),
+            data_source=kwargs.get("data_source", parsed.get("data_source", "R")),
+            file_period=file_period,
+            data_frequency=data_frequency,
+            file_type=file_type,
+            monument_number=kwargs.get("monument_number", parsed.get("monument_number", "00")),
+        )
 
 
 def datefgpsWeekSOW(gpsWeek, SOW, String=None, leapSecs=None, mDay=False):
