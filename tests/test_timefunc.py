@@ -485,3 +485,93 @@ class TestRinexFilenameUnified:
         assert "015" in name_v2
         # Should have hour letter 'k' for hour 10
         assert "k" in name_v2
+
+
+# Time-range utility tests (migrated from receivers.utils.time_utils)
+from gtimes.timefunc import (
+    previous_complete_period,
+    generate_time_range,
+    generate_datetime_list,
+    generate_period_ranges,
+)
+
+
+class TestPreviousCompletePeriod:
+    """Alignment of the previous-complete-period boundary."""
+
+    def test_hourly_aligns_to_current_hour(self):
+        ref = datetime.datetime(2026, 4, 17, 22, 41, tzinfo=datetime.timezone.utc)
+        aligned = previous_complete_period("1H", now=ref)
+        assert aligned == datetime.datetime(2026, 4, 17, 22, 0, tzinfo=datetime.timezone.utc)
+
+    def test_daily_aligns_to_midnight(self):
+        ref = datetime.datetime(2026, 4, 17, 22, 41, tzinfo=datetime.timezone.utc)
+        aligned = previous_complete_period("1D", now=ref)
+        assert aligned == datetime.datetime(2026, 4, 17, 0, 0, tzinfo=datetime.timezone.utc)
+
+    def test_timedelta_input_equivalent_to_string(self):
+        ref = datetime.datetime(2026, 4, 17, 22, 41, tzinfo=datetime.timezone.utc)
+        via_str = previous_complete_period("1H", now=ref)
+        via_td = previous_complete_period(datetime.timedelta(hours=1), now=ref)
+        assert via_str == via_td
+
+    def test_sub_hour_truncates_to_period_multiple(self):
+        ref = datetime.datetime(2026, 4, 17, 22, 41, tzinfo=datetime.timezone.utc)
+        aligned = previous_complete_period(datetime.timedelta(minutes=15), now=ref)
+        # 22:41 → 22:30 (3 * 15m past 22:00 is 22:45, so 22:30 is the last complete mark)
+        assert aligned == datetime.datetime(2026, 4, 17, 22, 30, tzinfo=datetime.timezone.utc)
+
+
+class TestGenerateTimeRange:
+    """End-exclusive lookback window."""
+
+    def test_hourly_24(self):
+        ref = datetime.datetime(2026, 4, 17, 22, 41, tzinfo=datetime.timezone.utc)
+        start, end = generate_time_range("1H", 24, now=ref)
+        assert end == datetime.datetime(2026, 4, 17, 22, 0, tzinfo=datetime.timezone.utc)
+        assert start == datetime.datetime(2026, 4, 16, 22, 0, tzinfo=datetime.timezone.utc)
+        assert (end - start) == datetime.timedelta(hours=24)
+
+    def test_daily_7(self):
+        ref = datetime.datetime(2026, 4, 17, 22, 41, tzinfo=datetime.timezone.utc)
+        start, end = generate_time_range("1D", 7, now=ref)
+        assert end == datetime.datetime(2026, 4, 17, tzinfo=datetime.timezone.utc)
+        assert start == datetime.datetime(2026, 4, 10, tzinfo=datetime.timezone.utc)
+
+
+class TestGenerateDatetimeList:
+    """Inclusive-start, exclusive-end datetime iteration."""
+
+    def test_daily_spans_three_days(self):
+        a = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+        b = datetime.datetime(2026, 1, 4, tzinfo=datetime.timezone.utc)
+        dts = generate_datetime_list(a, b, "1D")
+        assert [d.day for d in dts] == [1, 2, 3]
+
+    def test_reverse_is_newest_first(self):
+        a = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+        b = datetime.datetime(2026, 1, 4, tzinfo=datetime.timezone.utc)
+        dts = generate_datetime_list(a, b, "1D", reverse=True)
+        assert [d.day for d in dts] == [3, 2, 1]
+
+    def test_empty_when_start_ge_end(self):
+        a = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+        assert generate_datetime_list(a, a, "1H") == []
+
+
+class TestGeneratePeriodRanges:
+    """Sub-range tuples covering the interval."""
+
+    def test_clamps_last_range(self):
+        a = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+        b = datetime.datetime(2026, 1, 3, 12, tzinfo=datetime.timezone.utc)  # 2.5 days
+        ranges = generate_period_ranges(a, b, "1D")
+        # Three tuples: (1,2), (2,3), (3,3 12h) — last clamped
+        assert len(ranges) == 3
+        assert ranges[-1][1] == b
+
+    def test_reverse_flips_order(self):
+        a = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+        b = datetime.datetime(2026, 1, 4, tzinfo=datetime.timezone.utc)
+        ranges = generate_period_ranges(a, b, "1D", reverse=True)
+        assert [s.day for s, _ in ranges] == [3, 2, 1]

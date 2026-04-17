@@ -639,6 +639,168 @@ def datepathlist(
     return stringlist
 
 
+def previous_complete_period(
+    period: Union[str, datetime.timedelta],
+    now: Optional[datetime.datetime] = None,
+) -> datetime.datetime:
+    """Return the start of the most recently completed period (UTC).
+
+    Used as the exclusive upper bound for "give me the last N periods of
+    complete data" queries, so the currently-being-written period isn't
+    pulled mid-file.
+
+    - period = 1 day → start of today (00:00:00 UTC); last complete day is yesterday.
+    - period = 1 hour → start of current hour; last complete hour is the one before.
+    - Any other timedelta returns ``now`` truncated to a multiple of ``period``
+      counted from midnight UTC of the reference day.
+
+    Args:
+        period: Period as a timedelta or a frequency string ("1H", "1D", ...).
+        now: Reference time (UTC). Defaults to ``datetime.now(timezone.utc)``.
+
+    Returns:
+        Aligned datetime marking the start of the most recent complete period.
+
+    Examples:
+        >>> ref = datetime.datetime(2026, 4, 17, 22, 41, tzinfo=datetime.timezone.utc)
+        >>> previous_complete_period("1H", now=ref).hour
+        22
+        >>> previous_complete_period("1D", now=ref).hour
+        0
+    """
+    if isinstance(period, str):
+        delta = _parse_frequency_to_timedelta(period)
+    else:
+        delta = period
+
+    ref = now if now is not None else datetime.datetime.now(datetime.timezone.utc)
+
+    # Day-aligned period
+    if delta >= datetime.timedelta(days=1):
+        return ref.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Sub-day: truncate to a multiple of delta counted from midnight
+    midnight = ref.replace(hour=0, minute=0, second=0, microsecond=0)
+    elapsed = ref - midnight
+    whole_periods = int(elapsed.total_seconds() // delta.total_seconds())
+    return midnight + delta * whole_periods
+
+
+def generate_time_range(
+    period: Union[str, datetime.timedelta],
+    lookback_periods: int,
+    now: Optional[datetime.datetime] = None,
+) -> Tuple[datetime.datetime, datetime.datetime]:
+    """Compute ``(start, end)`` covering the last ``lookback_periods`` complete periods.
+
+    The ``end`` is the start of the most recently completed period (from
+    :func:`previous_complete_period`) and is exclusive — the currently-being-
+    written period is deliberately not included, so callers don't pull
+    mid-file data.
+
+    Args:
+        period: Period as a timedelta or frequency string ("1H", "1D", ...).
+        lookback_periods: Number of complete periods to include.
+        now: Reference time (UTC). Defaults to current UTC time.
+
+    Returns:
+        ``(start, end)`` — ``end`` is exclusive.
+
+    Examples:
+        >>> ref = datetime.datetime(2026, 4, 17, 22, 41, tzinfo=datetime.timezone.utc)
+        >>> start, end = generate_time_range("1H", 24, now=ref)
+        >>> end.hour, start.day
+        (22, 16)
+    """
+    if isinstance(period, str):
+        delta = _parse_frequency_to_timedelta(period)
+    else:
+        delta = period
+    end = previous_complete_period(delta, now=now)
+    start = end - delta * lookback_periods
+    return start, end
+
+
+def generate_datetime_list(
+    start: datetime.datetime,
+    end: datetime.datetime,
+    period: Union[str, datetime.timedelta],
+    reverse: bool = False,
+) -> List[datetime.datetime]:
+    """Generate a list of datetimes at ``period`` intervals in ``[start, end)``.
+
+    Args:
+        start: Inclusive start.
+        end: Exclusive end.
+        period: Step between datetimes (timedelta or frequency string).
+        reverse: If True, return newest-first order.
+
+    Returns:
+        List of datetimes; empty if ``start >= end``.
+
+    Examples:
+        >>> a = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+        >>> b = datetime.datetime(2026, 1, 4, tzinfo=datetime.timezone.utc)
+        >>> [d.day for d in generate_datetime_list(a, b, "1D")]
+        [1, 2, 3]
+    """
+    if isinstance(period, str):
+        delta = _parse_frequency_to_timedelta(period)
+    else:
+        delta = period
+
+    out: List[datetime.datetime] = []
+    current = start
+    while current < end:
+        out.append(current)
+        current += delta
+    if reverse:
+        out.reverse()
+    return out
+
+
+def generate_period_ranges(
+    start: datetime.datetime,
+    end: datetime.datetime,
+    period: Union[str, datetime.timedelta],
+    reverse: bool = False,
+) -> List[Tuple[datetime.datetime, datetime.datetime]]:
+    """Generate ``(period_start, period_end)`` tuples covering ``[start, end)``.
+
+    The final tuple's end is clamped to ``end`` if the last period would
+    otherwise overrun it.
+
+    Args:
+        start: Inclusive start.
+        end: Exclusive end.
+        period: Length of each sub-range (timedelta or frequency string).
+        reverse: If True, return newest-first order.
+
+    Returns:
+        List of ``(period_start, period_end)`` tuples.
+
+    Examples:
+        >>> a = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
+        >>> b = datetime.datetime(2026, 1, 4, tzinfo=datetime.timezone.utc)
+        >>> [(s.day, e.day) for s, e in generate_period_ranges(a, b, "1D")]
+        [(1, 2), (2, 3), (3, 4)]
+    """
+    if isinstance(period, str):
+        delta = _parse_frequency_to_timedelta(period)
+    else:
+        delta = period
+
+    out: List[Tuple[datetime.datetime, datetime.datetime]] = []
+    current = start
+    while current < end:
+        period_end = min(current + delta, end)
+        out.append((current, period_end))
+        current += delta
+    if reverse:
+        out.reverse()
+    return out
+
+
 ############################################
 # derived functions
 
