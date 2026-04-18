@@ -1,6 +1,6 @@
 """GTimes - High-precision GPS time conversion and processing library."""
 
-__version__ = "0.4.1"
+__version__ = "0.5.0"
 __author__ = "Benedikt Gunnar Ófeigsson"
 __email__ = "bgo@vedur.is"
 

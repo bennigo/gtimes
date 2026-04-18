@@ -7,16 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- Complete CI/CD pipeline infrastructure with GitHub Actions
-- Comprehensive test suite with scientific validation
-- Performance benchmarking and regression detection
-- Security scanning and dependency analysis
+## [0.5.0] - 2026-04-18
 
-### Changed
-- Enhanced package metadata for better PyPI discovery
-- Improved documentation structure and content
-- Updated development dependencies and tooling
+### Fixed
+- `datepathlist()` now respects the `lfrequency` parameter. Previously it
+  hardcoded a daily interval regardless of requested frequency, so hourly
+  (e.g. `"1H"`, `"3H"`) GNSS receiver downloads fell back to daily intervals.
+  Added private helper `_parse_frequency_to_timedelta()` supporting H/D/W/M/S
+  units. Backward compatible: empty/None defaults to daily, 8H session logic
+  unchanged.
+
+### Added
+- **Package-level RINEX API**: `rinex2_filename`, `rinex3_filename`,
+  `rinex_filename`, `parse_rinex2_filename`, `parse_rinex3_filename`, and
+  `convert_rinex_filename` are now importable directly from `gtimes`.
+- **`rinex3_filename(uppercase=...)`** optional flag for uppercase station
+  IDs (default lowercase per RINEX 3 standard).
+- **Time-range helpers in `timefunc`** for domain-generic time-series
+  iteration: `previous_complete_period`, `generate_time_range`,
+  `generate_datetime_list`, `generate_period_ranges`. All accept frequency
+  as timedelta or string; end-exclusive to avoid reading mid-write periods.
+- **`parse_datetime_flexible()`** multi-format datetime parser (ISO 8601,
+  caller-supplied formats, built-in fallbacks).
+- **`timecalc` CLI flags**: `--rin2`, `--rin3`, `--rinex-convert`,
+  `--rinex-parse` for RINEX filename generation, conversion, and parsing.
+
+### Tests
+- 40+ new tests covering hourly frequency handling, RINEX round-trip
+  generation/parsing, time-range iteration, and flexible datetime parsing.
 
 ## [0.4.0] - 2024-12-02
 
