@@ -16,7 +16,8 @@ from unittest.mock import patch
 from gtimes.timefunc import (
     TimefromYearf, currYearfDate, dTimetoYearf, shifTime,
     currDatetime, currDate, datepathlist, shlyear, DaysinYear,
-    hourABC, gpsWeekDay, gpsfDateTime, dateTuple, round_to_hour
+    hourABC, gpsWeekDay, gpsfDateTime, dateTuple, round_to_hour,
+    _parse_frequency_to_timedelta
 )
 from gtimes.exceptions import FractionalYearError, ValidationError
 
@@ -242,20 +243,152 @@ class TestDatePathGeneration:
         assert "#Rin2" not in paths_str, "Should replace #Rin2 token"
         assert "20O.Z" in paths_str, "Should contain RINEX 2 format"
     
-    @pytest.mark.unit  
+    @pytest.mark.unit
     def test_datepathlist_month_formatting(self):
         """Test month abbreviation formatting."""
         start_date = datetime.datetime(2020, 3, 1)  # March
         end_date = datetime.datetime(2020, 3, 3)
-        
+
         # Test month abbreviation
         pattern = "/data/2020/#b/file_%Y%m%d.dat"
         paths = datepathlist(pattern, "1D", start_date, end_date)
-        
+
         # Should replace #b with lowercase month abbreviation
         paths_str = ' '.join(paths)
         assert "#b" not in paths_str, "Should replace #b token"
         assert "mar" in paths_str.lower(), "Should contain 'mar' for March"
+
+    @pytest.mark.unit
+    def test_datepathlist_hourly_frequency(self):
+        """Test hourly frequency generation (bug fix for hardcoded daily delta).
+
+        This test verifies the fix for the bug where datepathlist() hardcoded
+        delta=timedelta(days=1) regardless of lfrequency parameter.
+
+        Issue: For hourly data (lfrequency="1H"), it generated daily intervals
+        instead of hourly intervals.
+
+        Fix: Now parses lfrequency and uses appropriate timedelta.
+        """
+        start_date = datetime.datetime(2025, 11, 12, 0, 0, 0)
+        end_date = datetime.datetime(2025, 11, 12, 3, 0, 0)
+
+        # Test hourly frequency - should generate 4 timestamps (0, 1, 2, 3)
+        pattern = "#datelist"
+        datetimes = datepathlist(pattern, "1H", start_date, end_date)
+
+        assert len(datetimes) == 4, f"Expected 4 hourly timestamps, got {len(datetimes)}"
+        assert datetimes[0] == start_date, "First timestamp should match start"
+        assert datetimes[1] == datetime.datetime(2025, 11, 12, 1, 0, 0), "Second should be +1 hour"
+        assert datetimes[2] == datetime.datetime(2025, 11, 12, 2, 0, 0), "Third should be +2 hours"
+        assert datetimes[3] == datetime.datetime(2025, 11, 12, 3, 0, 0), "Fourth should be +3 hours"
+
+    @pytest.mark.unit
+    def test_datepathlist_3hour_frequency(self):
+        """Test 3-hour frequency generation."""
+        start_date = datetime.datetime(2025, 11, 12, 0, 0, 0)
+        end_date = datetime.datetime(2025, 11, 12, 9, 0, 0)
+
+        # Test 3-hour frequency - should generate timestamps at 0, 3, 6, 9
+        pattern = "#datelist"
+        datetimes = datepathlist(pattern, "3H", start_date, end_date)
+
+        assert len(datetimes) == 4, f"Expected 4 timestamps (every 3 hours), got {len(datetimes)}"
+        assert datetimes[0] == datetime.datetime(2025, 11, 12, 0, 0, 0)
+        assert datetimes[1] == datetime.datetime(2025, 11, 12, 3, 0, 0)
+        assert datetimes[2] == datetime.datetime(2025, 11, 12, 6, 0, 0)
+        assert datetimes[3] == datetime.datetime(2025, 11, 12, 9, 0, 0)
+
+    @pytest.mark.unit
+    def test_datepathlist_hourly_rinex_formatting(self):
+        """Test hourly frequency with RINEX filename formatting."""
+        start_date = datetime.datetime(2025, 11, 12, 20, 0, 0)
+        end_date = datetime.datetime(2025, 11, 12, 23, 0, 0)
+
+        # Test RINEX 2 formatting with hourly frequency
+        # Format: DOY + hour_letter + .year
+        # Hour letters: a=0, b=1, ..., u=20, v=21, w=22, x=23
+        pattern = "STATION#Rin2O.Z"
+        paths = datepathlist(pattern, "1H", start_date, end_date)
+
+        assert len(paths) == 4, f"Expected 4 hourly RINEX filenames, got {len(paths)}"
+
+        # Day 316 of 2025, hours 20-23 should be letters u, v, w, x
+        paths_str = ' '.join(paths)
+        assert "316u.25O.Z" in paths_str, "Should contain hour 20 (letter u)"
+        assert "316v.25O.Z" in paths_str, "Should contain hour 21 (letter v)"
+        assert "316w.25O.Z" in paths_str, "Should contain hour 22 (letter w)"
+        assert "316x.25O.Z" in paths_str, "Should contain hour 23 (letter x)"
+
+
+class TestFrequencyParsing:
+    """Test frequency string parsing for timedelta conversion."""
+
+    @pytest.mark.unit
+    def test_parse_hourly_frequencies(self):
+        """Test parsing of hourly frequency strings."""
+        # Test "H" and "1H"
+        assert _parse_frequency_to_timedelta("H") == datetime.timedelta(hours=1)
+        assert _parse_frequency_to_timedelta("1H") == datetime.timedelta(hours=1)
+
+        # Test multi-hour frequencies
+        assert _parse_frequency_to_timedelta("3H") == datetime.timedelta(hours=3)
+        assert _parse_frequency_to_timedelta("6H") == datetime.timedelta(hours=6)
+        assert _parse_frequency_to_timedelta("24H") == datetime.timedelta(hours=24)
+
+    @pytest.mark.unit
+    def test_parse_daily_frequencies(self):
+        """Test parsing of daily frequency strings."""
+        # Test "D" and "1D"
+        assert _parse_frequency_to_timedelta("D") == datetime.timedelta(days=1)
+        assert _parse_frequency_to_timedelta("1D") == datetime.timedelta(days=1)
+
+        # Test multi-day frequencies
+        assert _parse_frequency_to_timedelta("7D") == datetime.timedelta(days=7)
+
+    @pytest.mark.unit
+    def test_parse_other_frequencies(self):
+        """Test parsing of other time unit frequencies."""
+        # Test weeks
+        assert _parse_frequency_to_timedelta("W") == datetime.timedelta(weeks=1)
+        assert _parse_frequency_to_timedelta("2W") == datetime.timedelta(weeks=2)
+
+        # Test minutes
+        assert _parse_frequency_to_timedelta("M") == datetime.timedelta(minutes=1)
+        assert _parse_frequency_to_timedelta("30M") == datetime.timedelta(minutes=30)
+
+        # Test seconds
+        assert _parse_frequency_to_timedelta("S") == datetime.timedelta(seconds=1)
+        assert _parse_frequency_to_timedelta("30S") == datetime.timedelta(seconds=30)
+
+    @pytest.mark.unit
+    def test_parse_case_insensitive(self):
+        """Test that frequency parsing is case-insensitive."""
+        # Test lowercase
+        assert _parse_frequency_to_timedelta("h") == datetime.timedelta(hours=1)
+        assert _parse_frequency_to_timedelta("d") == datetime.timedelta(days=1)
+
+        # Test uppercase
+        assert _parse_frequency_to_timedelta("H") == datetime.timedelta(hours=1)
+        assert _parse_frequency_to_timedelta("D") == datetime.timedelta(days=1)
+
+    @pytest.mark.unit
+    def test_parse_invalid_formats(self):
+        """Test that invalid frequency formats raise ValueError."""
+        with pytest.raises(ValueError, match="Unsupported frequency unit"):
+            _parse_frequency_to_timedelta("invalid")
+
+        with pytest.raises(ValueError, match="Invalid frequency format"):
+            _parse_frequency_to_timedelta("1X2Y")
+
+        with pytest.raises(ValueError, match="Unsupported frequency unit"):
+            _parse_frequency_to_timedelta("1Z")  # Z is not a valid unit
+
+    @pytest.mark.unit
+    def test_parse_empty_default(self):
+        """Test that empty frequency defaults to daily."""
+        assert _parse_frequency_to_timedelta("") == datetime.timedelta(days=1)
+        assert _parse_frequency_to_timedelta(None) == datetime.timedelta(days=1)
 
 
 class TestUtilityFunctions:

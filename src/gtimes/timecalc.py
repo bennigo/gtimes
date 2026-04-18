@@ -185,6 +185,8 @@ def main() -> None:
         + "#Rin2 -> rinex 2 format %%j(session).%%y, "
         + "where session is a single character session identifier, "
         + "#8hRin2 -> special case of 8h rinex two files where Sessions are {0,1,2}) "
+        + "#Rin3 -> RINEX 3 long format: ssss00ISL_R_YYYYjjjHHMM_01D_15S_MO.rnx, "
+        + "with lowercase station. Use #Rin3[STATION] to specify a station. "
         + "#hourl -> hour of day as letter (0->a, 1->b, ..., 23->x), "
         + "Example:  /data/%%Y/#b/VONC/15s_24hr/rinex/VONC#Rin2O.Z -> "
         + "/data/2015/oct/VONC/15s_24hr/rinex/VONC2740.15O.Z \n"
@@ -287,6 +289,42 @@ def main() -> None:
         nargs="?",
         choices=["H", "d"],
         help="return time part rinex standard hourly format format",
+    )
+    group.add_argument(
+        "--rin2",
+        nargs="+",
+        metavar=("STATION", "TYPE"),
+        help="Generate RINEX 2 filename. Args: STATION [file_type] [session]. "
+        "file_type: o=obs, n=nav, g=glonass, l=galileo, m=met (default: o). "
+        "session: 0=daily, a-x=hourly (default: auto from date). "
+        "Example: --rin2 ELDC o -> ELDC0150.26o",
+    )
+    group.add_argument(
+        "--rin3",
+        nargs="+",
+        metavar=("STATION", "TYPE"),
+        help="Generate RINEX 3 filename. Args: STATION [file_type] [country] [period] [freq]. "
+        "file_type: MO, GO, MN, GN, etc (default: MO). "
+        "country: 3-char code (default: ISL). "
+        "period: 01D, 01H, 15M (default: 01D). "
+        "freq: 15S, 01S, 30S (default: 15S). "
+        "Example: --rin3 ELDC MO ISL 01H 01S",
+    )
+    group.add_argument(
+        "--rinex-convert",
+        nargs="+",
+        metavar=("FILENAME", "VERSION"),
+        help="Convert RINEX filename to different version. Args: FILENAME target_version [country]. "
+        "target_version: 2 or 3. "
+        "country: 3-char code for v2->v3 (default: ISL). "
+        "Example: --rinex-convert ELDC0150.26o 3",
+    )
+    group.add_argument(
+        "--rinex-parse",
+        metavar="FILENAME",
+        help="Parse RINEX filename and show components. "
+        "Works with both RINEX 2 and RINEX 3 filenames. "
+        "Example: --rinex-parse ELDC0150.26o",
     )
     group.add_argument(
         "--GPST",
@@ -414,6 +452,59 @@ def main() -> None:
         doy = int(day.strftime("%j"))
         yr = int(day.strftime("%y"))
         print("%.3d%s.%.2d" % (doy, hour, yr))
+
+    elif args.rin2:
+        # Generate RINEX 2 filename
+        station = args.rin2[0]
+        file_type = args.rin2[1] if len(args.rin2) > 1 else "o"
+        session = args.rin2[2] if len(args.rin2) > 2 else None
+        print(timefunc.rinex2_filename(station, day, file_type=file_type, session=session))
+
+    elif args.rin3:
+        # Generate RINEX 3 filename
+        station = args.rin3[0]
+        file_type = args.rin3[1] if len(args.rin3) > 1 else "MO"
+        country_code = args.rin3[2] if len(args.rin3) > 2 else "ISL"
+        file_period = args.rin3[3] if len(args.rin3) > 3 else "01D"
+        data_frequency = args.rin3[4] if len(args.rin3) > 4 else "15S"
+        print(timefunc.rinex3_filename(
+            station, day,
+            country_code=country_code,
+            file_period=file_period,
+            data_frequency=data_frequency,
+            file_type=file_type,
+        ))
+
+    elif args.rinex_convert:
+        # Convert RINEX filename between versions
+        filename = args.rinex_convert[0]
+        target_version = int(args.rinex_convert[1]) if len(args.rinex_convert) > 1 else 3
+        country_code = args.rinex_convert[2] if len(args.rinex_convert) > 2 else "ISL"
+        result = timefunc.convert_rinex_filename(
+            filename, target_version, country_code=country_code
+        )
+        if result:
+            print(result)
+        else:
+            print(f"Error: Could not parse filename '{filename}'", file=sys.stderr)
+            sys.exit(1)
+
+    elif args.rinex_parse:
+        # Parse RINEX filename
+        filename = args.rinex_parse
+        # Try RINEX 2 first
+        parsed = timefunc.parse_rinex2_filename(filename)
+        version = 2
+        if parsed is None:
+            parsed = timefunc.parse_rinex3_filename(filename)
+            version = 3
+        if parsed:
+            print(f"RINEX version: {version}")
+            for key, value in parsed.items():
+                print(f"  {key}: {value}")
+        else:
+            print(f"Error: Could not parse filename '{filename}'", file=sys.stderr)
+            sys.exit(1)
 
     else:
         print(day.strftime(outpstr))
