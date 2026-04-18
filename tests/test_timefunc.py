@@ -575,3 +575,43 @@ class TestGeneratePeriodRanges:
         b = datetime.datetime(2026, 1, 4, tzinfo=datetime.timezone.utc)
         ranges = generate_period_ranges(a, b, "1D", reverse=True)
         assert [s.day for s, _ in ranges] == [3, 2, 1]
+
+
+from gtimes.timefunc import parse_datetime_flexible
+
+
+class TestParseDatetimeFlexible:
+    """Multi-format datetime string parsing."""
+
+    def test_datetime_passthrough(self):
+        dt = datetime.datetime(2026, 4, 17, 14, 30)
+        assert parse_datetime_flexible(dt) is dt
+
+    def test_iso_format(self):
+        assert parse_datetime_flexible("2026-04-17T14:30:00") == datetime.datetime(
+            2026, 4, 17, 14, 30
+        )
+
+    def test_date_only(self):
+        assert parse_datetime_flexible("2026-04-17") == datetime.datetime(2026, 4, 17)
+
+    def test_compact_date(self):
+        assert parse_datetime_flexible("20260417") == datetime.datetime(2026, 4, 17)
+
+    def test_compact_with_dash(self):
+        assert parse_datetime_flexible("20260417-1430") == datetime.datetime(
+            2026, 4, 17, 14, 30
+        )
+
+    def test_standard_format(self):
+        assert parse_datetime_flexible("2026-04-17 14:30:00") == datetime.datetime(
+            2026, 4, 17, 14, 30
+        )
+
+    def test_extra_format_takes_priority_over_builtin(self):
+        result = parse_datetime_flexible("17/04/2026", extra_formats=["%d/%m/%Y"])
+        assert result == datetime.datetime(2026, 4, 17)
+
+    def test_invalid_raises_value_error(self):
+        with pytest.raises(ValueError, match="Could not parse"):
+            parse_datetime_flexible("not-a-date")

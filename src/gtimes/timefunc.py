@@ -801,6 +801,76 @@ def generate_period_ranges(
     return out
 
 
+# Default format fallbacks used by parse_datetime_flexible. ISO 8601 is
+# tried first via datetime.fromisoformat(); these cover the common
+# CLI-entered shapes seen in scientific tooling.
+_FLEXIBLE_DATETIME_FORMATS: List[Tuple[str, str]] = [
+    ("%Y-%m-%d %H:%M:%S", "Standard datetime: YYYY-MM-DD HH:MM:SS"),
+    ("%Y%m%d-%H%M", "Compact with dash: YYYYMMDD-HHMM"),
+    ("%Y-%m-%d", "Date only: YYYY-MM-DD"),
+    ("%Y%m%d", "Compact date: YYYYMMDD"),
+]
+
+
+def parse_datetime_flexible(
+    dt_input: Union[datetime.datetime, str],
+    extra_formats: Optional[List[str]] = None,
+) -> datetime.datetime:
+    """Parse a datetime from string with graceful fallback across formats.
+
+    Tries, in order:
+    1. If ``dt_input`` is already a ``datetime``, returns it unchanged.
+    2. ``datetime.fromisoformat`` (standard ISO 8601).
+    3. Each format in ``extra_formats`` (caller-supplied, highest priority
+       after ISO).
+    4. A small built-in set of common formats covering CLI-entered shapes:
+       ``%Y-%m-%d %H:%M:%S``, ``%Y%m%d-%H%M``, ``%Y-%m-%d``, ``%Y%m%d``.
+
+    Args:
+        dt_input: ``datetime`` object or string representation.
+        extra_formats: Optional extra ``strptime`` format strings to try
+            before the built-in list.
+
+    Returns:
+        Parsed ``datetime`` object.
+
+    Raises:
+        ValueError: If the string doesn't match any format.
+
+    Examples:
+        >>> parse_datetime_flexible("2026-04-17")
+        datetime.datetime(2026, 4, 17, 0, 0)
+        >>> parse_datetime_flexible("20260417-1430")
+        datetime.datetime(2026, 4, 17, 14, 30)
+    """
+    if isinstance(dt_input, datetime.datetime):
+        return dt_input
+
+    try:
+        return datetime.datetime.fromisoformat(dt_input)
+    except ValueError:
+        pass
+
+    if extra_formats:
+        for fmt in extra_formats:
+            try:
+                return datetime.datetime.strptime(dt_input, fmt)
+            except ValueError:
+                continue
+
+    for fmt, _description in _FLEXIBLE_DATETIME_FORMATS:
+        try:
+            return datetime.datetime.strptime(dt_input, fmt)
+        except ValueError:
+            continue
+
+    supported = ", ".join(fmt for fmt, _ in _FLEXIBLE_DATETIME_FORMATS)
+    raise ValueError(
+        f"Could not parse datetime string: '{dt_input}'. "
+        f"Supported formats: ISO, {supported}"
+    )
+
+
 ############################################
 # derived functions
 
