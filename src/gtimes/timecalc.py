@@ -26,7 +26,7 @@ def _get_version() -> str:
             from gtimes import __version__
             return __version__
         except ImportError:
-            return "0.4.1"  # Development fallback
+            return "0.5.0"  # Development fallback
 
 
 def datestr(string: str) -> datetime.datetime:
