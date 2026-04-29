@@ -1419,7 +1419,9 @@ def parse_rinex2_filename(filename: str) -> Optional[Dict[str, Any]]:
     basename = os.path.basename(filename)
 
     # Pattern: SSSS0DDS.YYt
-    pattern = r'^([A-Za-z0-9]{4})(\d{3})([0-9a-z])\.(\d{2})([ongmlh])$'
+    # File type characters: o=observation, d=Hatanaka-compressed observation,
+    # n=GPS nav, g=GLONASS nav, m=met, l=Galileo nav, h=SBAS nav
+    pattern = r'^([A-Za-z0-9]{4})(\d{3})([0-9a-z])\.(\d{2})([ongmlhd])$'
     match = re.match(pattern, basename, re.IGNORECASE)
 
     if not match:

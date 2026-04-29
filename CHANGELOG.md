@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `parse_rinex2_filename` now recognises `.YYd` Hatanaka-compressed observation
+  files (e.g. `ELDC0150.26d`). Previously the regex only matched `[ongmlh]`, so
+  Hatanaka filenames silently returned `None`.
+
 ## [0.5.0] - 2026-04-18
 
 ### Fixed

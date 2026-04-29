@@ -390,6 +390,16 @@ class TestParseRinex2Filename:
         assert parsed is not None
         assert parsed["year"] == 1999
 
+    def test_parse_hatanaka_file(self):
+        """Test parsing Hatanaka-compressed observation file (.YYd)."""
+        parsed = parse_rinex2_filename("ELDC0150.26d")
+        assert parsed is not None
+        assert parsed["station"] == "ELDC"
+        assert parsed["doy"] == 15
+        assert parsed["year"] == 2026
+        assert parsed["file_type"] == "d"
+        assert parsed["session"] == "0"
+
     def test_invalid_filename(self):
         """Test parsing invalid filename returns None."""
         parsed = parse_rinex2_filename("invalid.txt")
