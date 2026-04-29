@@ -244,3 +244,8 @@ verbose = 1
 quiet = false
 whitelist-regex = []
 color = true
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+]
